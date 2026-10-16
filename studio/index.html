@@ -89,6 +89,8 @@
     .chip .indicator{color:#b9f0c9}
     .chip button{background:transparent;border:0;color:#c5c9db;margin-left:3px;padding:0;font-size:14px}
     .refine-box {margin-top:17px;border-top:1px solid #30344a;padding-top:16px}
+    .autopilot-section {background:radial-gradient(ellipse at 90% 0%,#6d50c337,transparent 67%)}
+    .autopilot-description {color:#a6adc1;font-size:11px;line-height:1.65;margin:0 0 12px}
     .tip {font-size:11px;line-height:1.55;color:#8f98af;padding-top:10px;margin:0}
     .center-panel{display:grid;gap:16px;min-width:0}
     .viewer{position:relative;padding:16px 17px 18px;background:linear-gradient(175deg,#151929,#10141f);
@@ -189,6 +191,32 @@
     <div class="workspace">
       <section class="panel">
         <div class="panel-head"><div><h3>✦ Creative director</h3><p>Describe how your video should feel</p></div><span class="pill">AGENT</span></div>
+        <div class="section autopilot-section">
+          <div class="section-title"><span>✦ One-prompt motion graphics</span><span class="pill">5:00</span></div>
+          <p class="autopilot-description">Create a complete 5-minute animated graphic video, even without uploading photos or clips. Includes text, cards, panels, scrolling UI and transitions.</p>
+          <label class="fieldlabel" for="autoPrompt">Tell the agent what to explain</label>
+          <textarea id="autoPrompt" style="min-height:112px" placeholder="Create a five-minute explainer about how AI agents work. Modern tech design, kinetic titles, animated dashboards and smooth scrolling.">Create a five-minute motion graphics explainer about AI agents, how they plan tasks and use tools, with animated typography, scrolling UI cards and clear step-by-step examples.</textarea>
+          <div class="fieldrow" style="margin-top:12px">
+            <div><label for="autoRatio" class="fieldlabel" style="margin-top:0">Video size</label>
+              <select id="autoRatio"><option value="16:9">16:9 · YouTube</option><option value="9:16">9:16 · Shorts</option><option value="1:1">1:1 · Square</option></select></div>
+            <div><label for="autoTheme" class="fieldlabel" style="margin-top:0">Design theme</label>
+              <select id="autoTheme"><option value="midnight">Midnight purple</option><option value="ocean">Ocean teal</option><option value="ember">Warm orange</option><option value="berry">Berry pink</option><option value="paper">Paper editorial</option></select></div>
+          </div>
+          <label class="custom-check" style="margin-top:13px"><input id="autoAI" type="checkbox"> Let Gemini write the storyboard (needs API key)</label>
+          <label class="custom-check" style="margin-top:10px"><input id="autoAmbience" type="checkbox" checked> Add original synthesized ambient sound</label>
+          <button id="autoGenerate" class="btn primary full" style="margin-top:15px">✦ Generate complete 5-minute MP4</button>
+          <p class="tip">50+ short animated scenes, generated in sequence. Free hosting uses draft resolution. Rendering may take several minutes; stay on this page and download promptly.</p>
+          <div id="autoProgress" class="progress-wrap" role="status" aria-live="polite">
+            <div class="fieldrow tight" style="margin-bottom:8px"><span id="autoMessage" class="small-muted">Planning…</span><span id="autoPct" class="small-muted">0%</span></div>
+            <div class="progress-track"><div id="autoFill" class="progress-fill"></div></div>
+          </div>
+          <div id="autoResult" class="result">
+            <video controls playsinline id="autoVideo"></video>
+            <a id="autoDownload" href="#" download="motionforge-5-minute.mp4" class="btn mint full">↓ Download complete 5-minute video</a>
+            <a id="autoStoryboard" href="#" download="motionforge-storyboard.json" class="btn soft full" style="margin-top:7px">↓ Download editable storyboard JSON</a>
+            <p class="tip">The video and storyboard are temporary on Render. Save them before the server restarts.</p>
+          </div>
+        </div>
         <div class="section">
           <div class="section-title"><span>01 · Your media</span><span class="small-muted" id="assetCount">0 files</span></div>
           <div class="dropzone" id="dropzone" role="button" tabindex="0" aria-label="Upload images and video clips">
@@ -622,6 +650,44 @@
     finally{state.rendering=false;button.textContent="↗ Export video MP4";refresh();}
   }
   $("exportBtn").onclick=exportVideo;
+  async function startAutopilot(){
+    const prompt=$("autoPrompt").value.trim();
+    if(prompt.length<5){toast("Describe the motion graphic video you want first.");return;}
+    if(state.rendering){toast("Finish the current render before starting another.");return;}
+    const button=$("autoGenerate");
+    busy(button,true,"Generating the 5-minute video...");
+    $("autoResult").classList.remove("show");
+    $("autoProgress").classList.add("show");
+    $("autoFill").style.width="0%";$("autoPct").textContent="0%";
+    try{
+      const request={
+        prompt,duration:300,ratio:$("autoRatio").value,theme:$("autoTheme").value,
+        use_ai:$("autoAI").checked,ambience:$("autoAmbience").checked,
+      };
+      const started=await api("/api/auto/start",{
+        method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(request),
+      });
+      let job;
+      for(let tick=0;tick<1800;tick++){
+        job=await api("/api/jobs/"+started.job_id);
+        const pct=Number(job.progress)||0;
+        $("autoFill").style.width=pct+"%";$("autoPct").textContent=pct+"%";
+        $("autoMessage").textContent=job.message||"Rendering your graphics...";
+        if(job.state==="failed")throw Error(job.message||"Render failed");
+        if(job.state==="done")break;
+        await sleep(2000);
+      }
+      if(job?.state!=="done")throw Error("Render check timed out; check the Render logs.");
+      $("autoVideo").src=job.url;
+      $("autoDownload").href=job.url;
+      $("autoStoryboard").href=job.storyboard_url;
+      $("autoResult").classList.add("show");
+      toast("Complete! Download your 5-minute MP4 and storyboard now.");
+    }catch(err){toast("Motion graphics render: "+err.message);}
+    finally{busy(button,false);}
+  }
+  $("autoGenerate").onclick=startAutopilot;
+
 
   function illustratedFile(index){
     const canvas=document.createElement("canvas");canvas.width=540;canvas.height=720;const c=canvas.getContext("2d");
@@ -646,6 +712,9 @@
     try{const info=await api("/api/health");
       state.maxScenes=info.max_scenes||40;
       state.freeMode=!!info.free_mode;
+      if(!info.gemini_configured){
+        $("autoAI").title="Gemini not configured — the offline generator still makes a video.";
+      }
       if(info.free_mode){
         $("qualitySelect").querySelector('option[value="hd"]').disabled=true;
         $("qualitySelect").value="draft";state.quality="draft";
