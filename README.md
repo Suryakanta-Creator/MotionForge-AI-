@@ -13,7 +13,7 @@ A lightweight, prompt-directed video editor built with **FastAPI + FFmpeg + vani
 - Prompt-to-edit planning and follow-up editing instructions: offline rules by default; optional Gemini model when configured.
 - View render progress and preview/download the result.
 
-**Important:** This is an editor, *not* a text-to-video diffusion model. It needs uploaded media (or the built-in generated illustration demo). It does not animate characters or generate images. Optional Chatterbox speech synthesis is available with a separate local install.
+**Important:** The traditional timeline editor uses uploaded media. The separate **one-prompt motion-graphics** workflow can render abstract original graphics without media uploads. This is not a text-to-video diffusion model. It does not animate characters or generate images. Optional Chatterbox speech synthesis is available with a separate local install.
 
 ## NEW: Autonomous Motion Studio (v0.4)
 
@@ -66,6 +66,39 @@ MOTIONFORGE_SMOKE_RENDER=1 python -m unittest discover -s tests -p "test_motion_
 **Deployment note:** \`render.yaml\` currently sets \`autoDeployTrigger: off\`.
 Pushing to GitHub does **not** update the deployed Render service automatically;
 redeploy the latest commit manually from Render's dashboard.
+
+## New in v0.4 — single-prompt full 5-minute motion graphics
+
+**Prompt → 50-scene storyboard → original 2D animations → one five-minute MP4.**
+Upload-free, template-driven graphics now include animated typography, steps, cards, mock dashboards, scrolling panels, metric tiles and split screens. Scenes are composited with Pillow, streamed to FFmpeg and joined into a single MP4. The UI lets you choose **5:00 Full**, **1:00 Trial**, or **0:30 Test**. You can download both the MP4 and a JSON storyboard.
+
+This is *not* a generative footage model and **does not clone the reference video's real UI recordings**. Without an API key the agent plans a *generic, topic-aware visual presentation*: it does **not** invent facts or simulate research. For topic-specific scriptwriting, configure an optional \`GEMINI_API_KEY\` (Gemini usage may be charged). Neither mode currently downloads web sources, synthesizes a spoken narrator or produces character animation. The optional soundtrack is a deliberately minimal synthesized ambient bed, not a licensed track.
+
+### Option A — generate through your Render studio
+
+1. Add \`MOTIONFORGE_PASSWORD\` as a nonempty environment variable in Render; log in as \`studio\`.
+2. In Render Dashboard → service → **Manual Deploy** → **Deploy latest commit**, because the current \`render.yaml\` sets \`autoDeployTrigger: off\`. Do not create another service.
+3. On the site, use **One-prompt motion graphics**, describe the video and choose **5 minutes**.
+4. Start with a **30-second test** before a long job. The free container attempts a 300-second render at low resolution (426×240 landscape or 240×426 portrait) and may be throttled, restarted or fail; you must keep checking progress and download finished media before restart.
+
+### Option B — recommended free full-length export on GitHub Actions
+
+1. Open **Actions** in this repository.
+2. Choose **Generate 5-minute motion graphics** → **Run workflow**.
+3. Paste **one video prompt**, select the format and palette, and optionally enable Gemini (only if you set a repository Actions secret \`GEMINI_API_KEY\`). Leave this checkbox **off** for a no-key, template-based storyboard.
+4. Wait for the workflow to finish. Open its run → **Artifacts** → **motionforge-five-minute-video**. Download the ZIP containing **motionforge-5-minute.mp4** and **motionforge-5-minute.storyboard.json**.
+
+The workflow checks that the video duration is approximately **300 seconds**. Uses a standard Ubuntu GitHub-hosted runner; GitHub currently makes Actions execution free on **public repositories** within its policies. **Do not put private information into workflow input prompts:** this repository and workflow metadata are public. The output artifact is retained for **five days**, so save the download promptly.
+
+### Option C — run a 5-minute export on your own computer
+
+\`\`\`bash
+python autonomous.py --prompt "Explain AI agents using animated titles, scrolling panels, and clear steps" --duration 300 --ratio 16:9 --theme midnight --quality standard --ambience --output five-minute-video.mp4
+\`\`\`
+
+The resulting files are \`five-minute-video.mp4\` and \`five-minute-video.storyboard.json\`. Use \`--use-ai\` only after installing \`requirements-ai.txt\` and setting \`GEMINI_API_KEY\`. If you edit the storyboard file, it can be rendered programmatically through \`autonomous.render_storyboard\` (visual scene editor integration is planned).
+
+The automated output's design is deliberately **original and simplified**; it can echo broad motion-design techniques without reproducing the original creator's graphics or copyrighted footage. It is a **beta** and has not yet been verified as a successful five-minute export on your specific Render deployment.
 
 ## Deploy free on Render (personal test deployment)
 
