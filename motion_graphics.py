@@ -149,7 +149,7 @@ def make_storyboard(request: MotionRequest, facts: dict) -> dict:
                        "GO DEEPER", "THE CREATIVE VIEW"][(i - 1) % 6]
             body = topic[:130]
         scenes.append({
-            "kind": ("statement", "card", "steps", "quote")[((i - 1) % 4)],
+            "kind": ("statement", "interface", "timeline", "card", "steps", "quote")[((i - 1) % 6)],
             "heading": heading,
             "body": body,
             "number": i + 1,
@@ -284,6 +284,79 @@ def _draw_frame(background, scene, colors, index, total, global_pos, all_frames)
                             outline=accent, width=max(2, int(2 * scale)))
         _text_block(d, body, x0 + pad // 2, y + int(h * .055),
                     w - 3 * pad, int(28 * scale), white, 1.34, 6)
+    elif kind == "interface":
+        # A responsive browser mockup: floating cards, scrolling and a moving cursor.
+        y = title_y + title_h + int(h * .035)
+        bottom = min(int(h * .81), y + int(h * .43))
+        x0, x1 = pad, w - pad
+        d.rounded_rectangle((x0, y, x1, bottom), radius=int(18 * scale),
+                            fill=_mix(colors[1], colors[0], .24), outline=muted,
+                            width=max(1, int(scale * 2)))
+        toolbar = y + int(39 * scale)
+        d.line((x0, toolbar, x1, toolbar), fill=_mix(colors[4], colors[1], .54))
+        for j in range(3):
+            rad = 5 * scale
+            cx = x0 + (17 + j * 16) * scale
+            cy = y + 19 * scale
+            d.ellipse((cx-rad, cy-rad, cx+rad, cy+rad), fill=accent if j == 0 else muted)
+        content_top = toolbar + int(18 * scale)
+        shift = int(_ease(u) * h * .045)
+        inner_width = x1 - x0 - int(42 * scale)
+        for j in range(3):
+            cy = content_top + j * int(h * .123) - shift
+            if cy < content_top - 8 or cy + 25 > bottom:
+                continue
+            x = x0 + int(19 * scale)
+            d.rounded_rectangle((x, cy, x + inner_width, min(bottom - 8, cy + int(h * .105))),
+                                radius=int(10 * scale), fill=_mix(colors[1], colors[2], .12))
+            d.rounded_rectangle((x + 12 * scale, cy + 14 * scale,
+                                 x + 52 * scale, cy + 54 * scale),
+                                radius=int(7 * scale), fill=accent)
+            if j == 0:
+                _text_block(d, body, x + 63 * scale, cy + 14 * scale,
+                            inner_width - 75 * scale, int(18 * scale), white, 1.1, 3)
+            else:
+                d.rounded_rectangle((x + 63 * scale, cy + 18 * scale,
+                                     x + inner_width - 14 * scale, cy + 24 * scale),
+                                    radius=3, fill=muted)
+                d.rounded_rectangle((x + 63 * scale, cy + 36 * scale,
+                                     x + inner_width * .68, cy + 42 * scale),
+                                    radius=3, fill=_mix(colors[2], colors[1], .4))
+        cursor_x = x0 + inner_width * (.72 - .17 * _ease(u))
+        cursor_y = content_top + h * (.17 + .13 * math.sin(u * math.pi))
+        d.ellipse((cursor_x-8*scale, cursor_y-8*scale,
+                   cursor_x+8*scale, cursor_y+8*scale),
+                  fill=white, outline=accent, width=max(1, int(3*scale)))
+    elif kind == "timeline":
+        # Timeline tracks and a sweeping playhead, reminiscent of a real editor.
+        y = title_y + title_h + int(h * .045)
+        bottom = min(int(h * .80), y + int(h * .35))
+        x0, x1 = pad, w - pad
+        d.rounded_rectangle((x0, y, x1, bottom), radius=int(17 * scale),
+                            fill=_mix(colors[1], colors[0], .2),
+                            outline=muted, width=max(1, int(2 * scale)))
+        d.text((x0 + 17*scale, y + 13*scale), "MOTION / TIMELINE",
+               font=_font(int(17 * scale)), fill=white)
+        top = y + int(h * .08)
+        for track in range(3):
+            ty = top + track * int(h * .072)
+            d.rounded_rectangle((x0+15*scale, ty, x1-15*scale,
+                                 ty+int(h*.053)), radius=int(7*scale),
+                                fill=_mix(colors[1], colors[4], .2))
+            widths = [.28, .19, .31]
+            cursor = x0 + int(22 * scale)
+            for k, fraction in enumerate(widths):
+                span = (x1 - x0 - int(60*scale)) * fraction
+                d.rounded_rectangle((cursor, ty+5*scale, cursor+span,
+                                     ty+int(h*.053)-5*scale),
+                                    radius=int(6*scale),
+                                    fill=_mix(colors[1], colors[2], (.70 if (k+track)%2 else .45)))
+                cursor += span + int(5*scale)
+        playhead = x0 + 20*scale + (x1-x0-40*scale)*_ease(u)
+        d.line((playhead, top-7*scale, playhead, bottom-12*scale),
+               fill=white, width=max(2, int(3*scale)))
+        _text_block(d, body, x0 + int(15*scale), bottom + int(h*.024),
+                    w - 2*pad, int(19*scale), muted, 1.2, 2)
     elif kind == "steps":
         y = title_y + title_h + int(h * .04)
         parts = _wrap(d, body, _font(int(22 * scale)), w - 3 * pad, 3)
