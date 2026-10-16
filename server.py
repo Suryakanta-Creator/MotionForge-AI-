@@ -55,6 +55,13 @@ class RenderRequest(BaseModel):
     voice_id: str | None = None
 
 
+
+class ReviseRequest(BaseModel):
+    plan: dict
+    instructions: str = Field(min_length=2, max_length=2000)
+    use_ai: bool = False
+
+
 def run(args: list[str]) -> None:
     result = subprocess.run(args, capture_output=True, text=True, timeout=1800)
     if result.returncode:
@@ -267,6 +274,146 @@ def validate_plan(plan: dict, selection: dict[str, dict]) -> dict:
         raise ValueError("10 minute maximum for one render")
     return {"ratio": plan["ratio"], "quality": plan["quality"],
             "transition": plan["transition"], "scenes": result}
+
+
+
+def offline_revise(plan: dict, instruction: str, chosen: dict[str, dict]):
+    """Small transparent rule engine for iterative edits without a paid model."""
+    updated = {"ratio": plan["ratio"], "quality": plan["quality"],
+               "transition": plan["transition"], "scenes": [dict(s) for s in plan["scenes"]]}
+    normalized = instruction.lower().strip()
+    changes = []
+    scenes = updated["scenes"]
+    match = re.search(r"(?:scene|clip|shot)\s*#?\s*(\d+)", normalized)
+    target = int(match.group(1)) - 1 if match else None
+    if target is None:
+        for token, index in (("first", 0), ("second", 1), ("third", 2), ("last", len(scenes)-1)):
+            if re.search(r"\b" + token + r"\s+(?:scene|clip|shot)\b|\b(?:scene|clip|shot)\s+" + token + r"\b", normalized):
+                target = index
+                break
+    if target is not None and not 0 <= target < len(scenes):
+        raise ValueError("That scene number is not on the timeline")
+    indices = [target] if target is not None else list(range(len(scenes)))
+    if re.search(r"\b(?:hard|clean)\s+cuts?\b|\bno\s+fades?\b", normalized):
+        updated["transition"] = "cut"
+        changes.append("clean cuts")
+    elif re.search(r"\bfades?\b|\bsmooth\s+transitions?\b", normalized):
+        updated["transition"] = "fade"
+        changes.append("soft fades")
+    movement = [
+        ("zoom_out", r"\bzoom\s*out\b"), ("zoom_in", r"\bzoom\s*in\b"),
+        ("pan_down", r"\b(?:scroll|pan)\s*down\b|\bdownward\s+scroll\b"),
+        ("pan_up", r"\b(?:scroll|pan)\s*up\b|\bupward\s+scroll\b"),
+        ("pan_left", r"\b(?:scroll|pan|move)\s*left\b"),
+        ("pan_right", r"\b(?:scroll|pan|move)\s*right\b"),
+        ("still", r"\b(?:still|no\s+motion|static)\b"),
+    ]
+    selected_effect = next((effect for effect, pattern in movement if re.search(pattern, normalized)), None)
+    if selected_effect:
+        for i in indices:
+            if chosen[scenes[i]["media_id"]]["kind"] == "image":
+                scenes[i]["effect"] = selected_effect
+        changes.append("camera motion")
+    seconds = re.search(r"\b(?:make|set|to|duration|for)\s*(?:this|it|the|scene|clip|\d+|to|last|first|second|third|\s)*\s*(\d+(?:\.\d+)?)\s*(?:seconds?|secs?|s)\b", normalized)
+    if not seconds:
+        seconds = re.search(r"\b(\d+(?:\.\d+)?)\s*(?:seconds?|secs?)\b", normalized)
+    for i in indices:
+        scene = scenes[i]
+        reference = chosen[scene["media_id"]]
+        if seconds:
+            scene["duration"] = max(.5, min(90.0, float(seconds.group(1))))
+        elif re.search(r"\b(?:slower|slow down|longer)\b", normalized):
+            if reference["kind"] == "video":
+                scene["speed"] = max(.5, round(scene["speed"] * .75, 2))
+            else:
+                scene["duration"] = min(90.0, round(scene["duration"] * 1.3, 2))
+        elif re.search(r"\b(?:faster|speed up|shorter)\b", normalized):
+            if reference["kind"] == "video":
+                scene["speed"] = min(2.0, round(scene["speed"] * 1.25, 2))
+            else:
+                scene["duration"] = max(.5, round(scene["duration"] * .8, 2))
+        if reference["kind"] == "video":
+            remaining = max(.5, (reference["duration"] - scene["trim_start"]) / scene["speed"])
+            scene["duration"] = min(scene["duration"], remaining)
+    if seconds or re.search(r"\b(?:slower|slow down|longer|faster|speed up|shorter)\b", normalized):
+        changes.append("scene timing")
+    caption = re.search(r"\bcaption\s*:\s*(.+)", instruction, flags=re.I)
+    if re.search(r"\b(?:remove|delete|no)\s+(?:the\s+)?captions?\b", normalized):
+        for i in indices:
+            scenes[i]["caption"] = ""
+        changes.append("captions removed")
+    elif caption:
+        for i in indices:
+            scenes[i]["caption"] = caption.group(1).strip()[:140]
+        changes.append("on-screen text")
+    if re.search(r"\b(?:delete|remove)\s+(?:scene|clip|shot)\b", normalized):
+        if target is None:
+            raise ValueError("Name the scene to remove, for example: remove scene 2")
+        if len(scenes) <= 1:
+            raise ValueError("At least one scene must remain")
+        scenes.pop(target)
+        changes.append("scene removed")
+    if not changes:
+        raise ValueError("Try: 'zoom into scene 2', 'make scene 1 5 seconds', or 'use clean cuts'.")
+    return updated, changes
+
+
+def gemini_revise(plan: dict, instruction: str, chosen: dict[str, dict]):
+    """Optional edit-plan LLM, with output validated before execution."""
+    if not os.getenv("GEMINI_API_KEY"):
+        return None
+    try:
+        from google import genai
+        client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+        context = [{**scene, "type": chosen[scene["media_id"]]["kind"],
+                    "filename": chosen[scene["media_id"]]["name"]}
+                   for scene in plan["scenes"]]
+        answer = client.models.generate_content(
+            model=os.getenv("GEMINI_MODEL", "gemini-2.5-flash"),
+            contents=(
+                "You are a restrained video editing agent. Return ONLY JSON: an object with "
+                "'transition' (fade or cut) and a 'scenes' array. Modify the existing edit "
+                "according to the user's requested correction. Preserve every media_id and "
+                "the SAME NUMBER AND ORDER of scenes; never add sources. "
+                "Allowed effects: " + ", ".join(EFFECTS) + ". "
+                "For video clips, effect is ignored, but speed, duration, trim_start work. "
+                "Only captions the user requested. Never invent new footage. "
+                "Canvas ratio and quality remain unchanged. "
+                f"Existing scenes: {json.dumps(context)}. User correction: {instruction}"
+            ),
+            config={"response_mime_type": "application/json"},
+        )
+        proposal = json.loads(answer.text or "{}")
+        new_scenes = proposal.get("scenes")
+        if not isinstance(new_scenes, list) or len(new_scenes) != len(plan["scenes"]):
+            return None
+        if [s.get("media_id") for s in new_scenes if isinstance(s, dict)] != [s["media_id"] for s in plan["scenes"]]:
+            return None
+        updated = dict(plan)
+        updated["transition"] = proposal.get("transition", plan["transition"])
+        updated["scenes"] = new_scenes
+        return validate_plan(updated, chosen)
+    except Exception:
+        return None
+
+
+@app.post("/api/revise")
+def revise_plan(request: ReviseRequest):
+    raw_scenes = request.plan.get("scenes", []) if isinstance(request.plan, dict) else []
+    if not isinstance(raw_scenes, list) or any(not isinstance(s, dict) or not isinstance(s.get("media_id"), str) for s in raw_scenes):
+        raise HTTPException(400, "Invalid scene list")
+    chosen = {s["media_id"]: asset_by_id(s["media_id"]) for s in raw_scenes}
+    try:
+        current_plan = validate_plan(request.plan, chosen)
+        gemini = gemini_revise(current_plan, request.instructions, chosen) if request.use_ai else None
+        if gemini is not None:
+            return {"plan": gemini, "mode": "gemini", "message": "Applied your instructions with Gemini."}
+        updated, changes = offline_revise(current_plan, request.instructions, chosen)
+        checked = validate_plan(updated, chosen)
+        return {"plan": checked, "mode": "offline", "message": "Updated: " + ", ".join(changes) + "."}
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+
 
 
 def caption_png(text: str, w: int, h: int, output: Path):
