@@ -68,3 +68,36 @@ def test_image_to_real_mp4():
     assert video.status_code == 200
     assert video.content[:4] != b"" and len(video.content) > 1000
     assert "video/mp4" in video.headers["content-type"]
+
+
+
+@pytest.mark.skipif(not shutil.which("ffmpeg") or not shutil.which("ffprobe"), reason="FFmpeg unavailable")
+def test_footage_trim_speed_and_music(tmp_path):
+    raw = tmp_path / "source.mp4"
+    song = tmp_path / "tone.wav"
+    subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
+                    "-f", "lavfi", "-i", "color=c=blue:s=160x240:r=24",
+                    "-t", "1.5", "-pix_fmt", "yuv420p", str(raw)], check=True)
+    subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
+                    "-f", "lavfi", "-i", "sine=frequency=440:duration=1.5",
+                    str(song)], check=True)
+    response = client.post("/api/upload", files={"file": ("test.mp4", raw.read_bytes(), "video/mp4")})
+    assert response.status_code == 200, response.text
+    video_id = response.json()["id"]
+    response = client.post("/api/upload", files={"file": ("test.wav", song.read_bytes(), "audio/wav")})
+    assert response.status_code == 200, response.text
+    music_id = response.json()["id"]
+    plan = {"ratio": "9:16", "quality": "draft", "transition": "cut",
+            "scenes": [{"media_id": video_id, "duration": .7, "trim_start": .2,
+                        "speed": 1.25, "effect": "still", "caption": "Hello world"}]}
+    response = client.post("/api/render", json={"plan": plan, "music_id": music_id})
+    assert response.status_code == 200, response.text
+    job_id = response.json()["job_id"]
+    for _ in range(150):
+        job = client.get(f"/api/jobs/{job_id}").json()
+        if job["state"] in ("done", "failed"):
+            break
+        time.sleep(.4)
+    assert job["state"] == "done", job
+    video = client.get(f"/api/export/{job_id}")
+    assert video.status_code == 200 and len(video.content) > 1000
