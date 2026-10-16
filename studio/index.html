@@ -201,8 +201,6 @@
             <div><label class="fieldlabel" style="margin-top:0" for="autoRatio">Video size</label><select id="autoRatio"><option value="16:9">16:9 · YouTube</option><option value="9:16">9:16 · Shorts</option><option value="1:1">1:1 · Square</option></select></div>
           </div>
           <div class="fieldrow" style="margin-top:10px">
-            <div><label for="autoTheme" class="fieldlabel" style="margin-top:0">Video size</label>
-              <select id="autoRatio"><option value="16:9">16:9 · YouTube</option><option value="9:16">9:16 · Shorts</option><option value="1:1">1:1 · Square</option></select></div>
             <div style="width:100%"><label for="autoTheme" class="fieldlabel" style="margin-top:0">Design theme</label>
               <select id="autoTheme"><option value="midnight">Midnight purple</option><option value="ocean">Ocean teal</option><option value="ember">Warm orange</option><option value="berry">Berry pink</option><option value="paper">Paper editorial</option></select></div>
           </div>
@@ -691,6 +689,10 @@
     finally{busy(button,false);}
   }
   $("autoGenerate").onclick=startAutopilot;
+  $("autoDuration").onchange=()=>{
+    const n=Number($("autoDuration").value);
+    $("autoGenerate").textContent=n===300?"✦ Generate complete 5-minute MP4":"✦ Generate "+n+"-second test MP4";
+  };
 
 
   function illustratedFile(index){
