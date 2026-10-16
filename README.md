@@ -10,7 +10,7 @@ A lightweight, prompt-directed video editor built with **FastAPI + FFmpeg + vani
 - Arrange scenes, set captions and durations, choose cuts or fades.
 - Optional background music and narration tracks.
 - Render actual MP4s with 9:16, 16:9 or 1:1 aspect ratio.
-- Prompt-to-edit planning: offline rules by default; optional Gemini model when configured.
+- Prompt-to-edit planning and follow-up editing instructions: offline rules by default; optional Gemini model when configured.
 - View render progress and preview/download the result.
 
 **Important:** This is an editor, *not* a text-to-video diffusion model. It needs uploaded media (or the built-in generated illustration demo). It does not yet animate characters, generate images or automatically create speech.
@@ -30,6 +30,10 @@ python server.py
 ```
 
 Open **http://localhost:7860** on your computer; for phone access on the same Wi-Fi, open `http://YOUR_COMPUTER_LAN_IP:7860` while the server runs.
+
+## Agent-like follow-up editing
+
+Once your timeline exists, use **Ask the agent to change something**. Examples: `zoom into scene 2`, `make scene 1 5 seconds`, `use clean cuts`, `remove scene 3`, `caption: A peaceful morning` or `make the last scene slower`. Without a Gemini key, the transparent rule-based interpreter handles these limited commands. With Gemini configured, it can attempt more flexible revisions; every plan is validated before rendering. The follow-up agent changes the edit instructions, not the contents of the underlying source video.
 
 ## Optional Gemini AI planning
 
