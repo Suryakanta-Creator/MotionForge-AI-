@@ -46,7 +46,7 @@ jobs: dict[str, dict] = {}
 mutex = threading.Lock()
 pool = ThreadPoolExecutor(max_workers=1 if FREE_MODE else 2)
 voice_pool = ThreadPoolExecutor(max_workers=1)  # Heavy TTS jobs run sequentially.
-app = FastAPI(title="MotionForge AI", version="0.3.1")
+app = FastAPI(title="MotionForge AI", version="0.4.0")
 
 
 @app.middleware("http")
@@ -153,7 +153,7 @@ def health():
     return {"ok": True, "ffmpeg": bool(shutil.which("ffmpeg") and shutil.which("ffprobe")),
             "gemini_configured": bool(os.getenv("GEMINI_API_KEY")),
             "free_mode": FREE_MODE, "max_scenes": MAX_SCENES,
-            "max_upload_mb": MAX_UPLOAD // (1024 * 1024), "version": "0.3.1"}
+            "max_upload_mb": MAX_UPLOAD // (1024 * 1024), "version": "0.4.0"}
 
 
 @app.post("/api/upload")
@@ -741,6 +741,10 @@ def export(job_id: str):
     return FileResponse(EXPORTS / f"{job_id}.mp4", media_type="video/mp4",
                         filename="MotionForge-export.mp4")
 
+
+# Autonomous research-to-motion graphics creator (shares the existing job/export queue).
+from motion_graphics import install_motion_routes
+install_motion_routes(app, jobs, mutex, pool, EXPORTS, WORK, FREE_MODE, ROOT / "studio")
 
 if __name__ == "__main__":
     import uvicorn
