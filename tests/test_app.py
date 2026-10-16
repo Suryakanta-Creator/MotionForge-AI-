@@ -120,3 +120,16 @@ def test_private_deployment_access(monkeypatch):
     assert client.get("/", headers={"Authorization": "Basic " + bad}).status_code == 401
     good = base64.b64encode(b"studio:test-password-123").decode()
     assert client.get("/", headers={"Authorization": "Basic " + good}).status_code == 200
+
+
+def test_autopilot_validation():
+    response=client.post("/api/auto/start",json={
+        "prompt":"A motion graphics explainer about visual storytelling",
+        "duration":300,"ratio":"3:5","theme":"midnight",
+    })
+    assert response.status_code==400
+    response=client.post("/api/auto/start",json={
+        "prompt":"A motion graphics explainer about visual storytelling",
+        "duration":301,"ratio":"16:9","theme":"midnight",
+    })
+    assert response.status_code==422
