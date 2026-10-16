@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#090c16">
+<title>MotionForge — Autonomous Motion Studio</title>
+<style>
+:root{--ink:#f5f3ff;--muted:#a5adc5;--line:#2c3148;--accent:#bba8ff;--mint:#adf4d4;--panel:#111827;--bg:#080c17}*{box-sizing:border-box}
+body{margin:0;color:var(--ink);background:radial-gradient(ellipse 58% 40% at 75% 4%,#482c8a2e,transparent 68%),var(--bg);font:15px/1.5 Inter,ui-sans-serif,system-ui,sans-serif;min-height:100vh}
+a{color:inherit;text-decoration:none}button,input,textarea,select{font:inherit}
+.wrap{max-width:1210px;margin:auto;padding:0 22px}
+header{border-bottom:1px solid #ffffff15;background:#090d18bb;backdrop-filter:blur(12px)}
+.nav{display:flex;align-items:center;justify-content:space-between;min-height:72px;gap:16px}
+.brand{display:flex;align-items:center;gap:12px;font-weight:850;letter-spacing:-.5px}
+.mark{width:38px;height:38px;display:grid;place-items:center;border-radius:12px;color:#170b32;background:linear-gradient(145deg,#c8b9ff,#8f7afc);font-size:20px}
+.back{padding:9px 12px;border:1px solid var(--line);border-radius:10px;color:var(--muted);font-size:12px}
+.topcopy{text-align:center;padding:66px 10px 30px}.eyebrow{font-size:11px;font-weight:800;letter-spacing:2.5px;color:var(--mint);text-transform:uppercase}
+h1{font-size:clamp(34px,5vw,62px);letter-spacing:-2px;line-height:1.08;margin:14px 0 12px}
+.gradient{background:linear-gradient(100deg,#fff,#c9b3ff 65%,#baf9e1);-webkit-background-clip:text;background-clip:text;color:transparent}
+.sub{margin:0 auto;color:var(--muted);max-width:660px;font-size:15px}
+.workspace{display:grid;grid-template-columns:minmax(330px,440px) minmax(0,1fr);gap:20px;align-items:start;padding:25px 0 70px}
+.panel{background:linear-gradient(160deg,#151c2d,#101523);border:1px solid var(--line);border-radius:20px;padding:23px;box-shadow:0 20px 60px #0003}
+h2{font-size:17px;margin:0 0 6px;letter-spacing:-.3px}
+.hint{font-size:12px;color:var(--muted);margin:0 0 23px}
+label{display:block;margin:17px 0 9px;font-size:12px;font-weight:700;color:#cbd3e6}
+textarea,select{width:100%;border:1px solid #40465e;background:#0a101e;border-radius:12px;color:var(--ink);padding:14px;outline:none}
+textarea{resize:vertical;min-height:139px;font-size:14px;line-height:1.6}
+textarea:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px #bd9dfb24}
+select{min-height:44px;padding:8px 11px}
+.twos{display:grid;grid-template-columns:1fr 1fr;gap:12px}.toggle{display:flex;align-items:start;gap:10px;padding:12px 0;color:#bcc5db;font-size:12px;cursor:pointer}
+.toggle input{accent-color:#a796ff;width:16px;height:16px;margin:2px 0 0}
+button.primary{margin-top:19px;width:100%;background:linear-gradient(100deg,#ad9afa,#baf4d2);border:0;border-radius:12px;color:#16192a;padding:15px;font-size:14px;font-weight:850;cursor:pointer}
+button.primary:disabled{opacity:.48;cursor:not-allowed}
+.tiny{font-size:11px;color:#7d8aa3;line-height:1.6;margin:13px 0 0}
+.visual{min-height:450px;border-radius:14px;background:radial-gradient(circle at 50% 32%,#533d8d56,transparent 50%),#0a1020;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;border:1px solid #38364d}
+.visual:before{content:"";position:absolute;inset:0;background-image:linear-gradient(#ffffff09 1px,transparent 1px),linear-gradient(90deg,#ffffff09 1px,transparent 1px);background-size:30px 30px;pointer-events:none}
+.empty{text-align:center;padding:35px;max-width:345px;position:relative}
+.glyph{font-size:54px;display:block;margin-bottom:12px}
+.empty strong{font-size:19px}.empty p{font-size:13px;color:var(--muted);margin:10px 0 0}
+.progress{margin-top:20px;display:none}.progress.show{display:block}.bar{height:8px;background:#293047;border-radius:10px;overflow:hidden}
+.fill{height:100%;width:0;background:linear-gradient(90deg,#9773ec,#b5f4ca);transition:width .3s}
+.meter{display:flex;align-items:center;justify-content:space-between;font-size:12px;color:#acbad2;margin:10px 0}
+#status{font-size:12px;color:#d6c9ff;min-height:20px}
+.result{display:none;margin-top:20px}.result.show{display:block}.result video{display:block;width:100%;max-height:560px;object-fit:contain;background:#070912;border-radius:13px}
+.download{display:block;margin-top:12px;padding:15px;border-radius:12px;text-align:center;background:#aff2cf;color:#102217;font-size:14px;font-weight:800}
+.details{display:none;margin-top:18px;border:1px solid var(--line);background:#0b1120;border-radius:13px;padding:15px;color:#aebad0;font-size:12px;line-height:1.7}
+.details.show{display:block}.details strong{color:#f0f2ff}.details a{text-decoration:underline;text-underline-offset:3px;color:#bba8ff;overflow-wrap:anywhere}
+#sourceList{margin:7px 0 0;padding-left:18px}.error{color:#ffbcbc!important}
+footer{text-align:center;color:#6f7b91;font-size:11px;padding:10px 20px 40px}
+@media(max-width:850px){.workspace{grid-template-columns:1fr}.topcopy{padding-top:48px}.visual{min-height:310px}.panel{padding:18px}.twos{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<header><div class="nav wrap"><a class="brand" href="/"><span class="mark">✦</span><span>MotionForge <span style="color:#bdaaff">AI</span></span></a><a class="back" href="/">← Open classic editor</a></div></header>
+<main class="wrap">
+  <section class="topcopy"><div class="eyebrow">Autonomous motion studio / beta</div><h1>From a thought to <span class="gradient">motion.</span></h1>
+  <p class="sub">Enter a topic. The agent gathers accessible public information, prepares animated scenes, renders a real MP4, and gives you a direct download.</p></section>
+  <div class="workspace">
+    <section class="panel">
+      <h2>✦ Create from a prompt</h2><p class="hint">No images, timeline edits or paid AI account required for template-based rendering.</p>
+      <label for="topic">What's your video about?</label>
+      <textarea id="topic" maxlength="300" placeholder="Example: Explain how solar energy works with smooth tech animations and clear, simple labels.">How does artificial intelligence learn? An accessible motion-graphics explainer.</textarea>
+      <div class="twos">
+        <div><label for="style">Visual direction</label><select id="style"><option value="midnight">Violet · tech</option><option value="mint">Mint · modern</option><option value="sunset">Peach · editorial</option><option value="paper">Paper · minimal</option></select></div>
+        <div><label for="ratio">Aspect ratio</label><select id="ratio"><option value="9:16">9:16 · Shorts</option><option value="16:9">16:9 · YouTube</option><option value="1:1">1:1 · Square</option></select></div>
+        <div><label for="duration">Video duration</label><select id="duration"><option value="12">12 seconds</option><option value="24" selected>24 seconds</option><option value="30">30 seconds</option><option value="45">45 seconds</option><option value="60">60 seconds</option><option value="120">2 minutes</option><option value="180">3 minutes</option><option value="300">5 minutes</option></select></div>
+      </div>
+      <label class="toggle"><input id="research" type="checkbox" checked><span><strong>Research topic automatically</strong><br>Look up Wikipedia summaries when available; sources appear with your result.</span></label>
+      <label class="toggle"><input id="audio" type="checkbox" checked><span><strong>Include original ambient tones</strong><br>Soft generated audio (not cloned speech or licensed music).</span></label>
+      <button class="primary" id="create">✦ Research, animate & export video</button>
+      <p class="tiny">Free Render hosting is limited to short, draft-resolution videos. Longer exports need a local or stronger server. Facts will not be invented when research is unavailable.</p>
+    </section>
+    <section class="panel">
+      <h2>◉ Your render</h2><p class="hint" id="currentState">Ready for your first autonomous animation</p>
+      <div class="visual" id="visual"><div class="empty"><span class="glyph">✧</span><strong>Your next video starts here</strong><p>Choose a style, enter a topic and click create. The finished animation will appear here.</p></div></div>
+      <div class="progress" id="progress"><div class="meter"><span id="status">Preparing</span><strong id="percent">0%</strong></div><div class="bar"><div class="fill" id="fill"></div></div></div>
+      <div class="result" id="result"><video controls playsinline id="video"></video><a class="download" id="download" download="MotionForge-motion.mp4">↓ Download MP4</a></div>
+      <div class="details" id="details"><strong>Research transparency</strong><p id="researchStatus"></p><strong>Source links</strong><ul id="sourceList"></ul></div>
+    </section>
+  </div>
+</main>
+<footer>MotionForge AI • Experimental template-driven animation • Use properly licensed source materials</footer>
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const sleep = ms => new Promise(r => setTimeout(r,ms));
+  let running = false;
+  async function api(path, options={}) {
+    const response = await fetch(path, options);
+    if(!response.ok) {
+      let detail = "Request failed ("+response.status+")";
+      try { const data=await response.json();detail=typeof data.detail==="string"?data.detail:detail; }catch{}
+      throw new Error(detail);
+    }
+    return response.json();
+  }
+  async function init() {
+    try{
+      const info=await api("/api/motion/presets");
+      const max=info.maximum_duration;
+      for(const option of $("duration").options)option.disabled=Number(option.value)>max;
+      if(Number($("duration").value)>max)$("duration").value=String(Math.min(24,max));
+      if(max<60)$("currentState").textContent="Free render mode · up to "+max+" seconds per video";
+    }catch(e){$("currentState").textContent="Studio status unavailable: "+e.message;}
+  }
+  function showSources(job){
+    $("details").classList.add("show");
+    const statuses={sourced:"Public source excerpts were found. Review the sources before publishing.",unavailable:"Research service was unreachable. Visuals use the topic you supplied; no additional factual claims were created.",no_sources:"No suitable source excerpts were found. Visuals use your own topic text.",disabled:"Automatic research was turned off."};
+    $("researchStatus").textContent=statuses[job.research_status]||"Research status unavailable.";
+    const list=$("sourceList");list.replaceChildren();
+    for(const source of (job.sources||[])){
+      if(!source.url?.startsWith("https://en.wikipedia.org/wiki/"))continue;
+      const li=document.createElement("li"),a=document.createElement("a");
+      a.href=source.url;a.target="_blank";a.rel="noopener noreferrer";
+      a.textContent=source.title||"Wikipedia article";li.append(a);list.append(li);
+    }
+    if(!list.children.length){const li=document.createElement("li");li.textContent="No source links used.";list.append(li);}
+  }
+  async function create(){
+    if(running)return;
+    const topic=$("topic").value.trim();
+    if(topic.length<3){$("currentState").textContent="Please enter a topic of at least three characters.";return;}
+    running=true;$("create").disabled=true;$("create").textContent="Creating your motion video…";
+    $("progress").classList.add("show");$("details").classList.remove("show");$("result").classList.remove("show");
+    $("status").classList.remove("error");$("currentState").textContent="Your video is being built";
+    $("video").pause();$("video").removeAttribute("src");$("video").load();
+    try{
+      const started=await api("/api/motion/create",{method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({topic,style:$("style").value,ratio:$("ratio").value,
+          duration:Number($("duration").value),research:$("research").checked,
+          ambient_audio:$("audio").checked})});
+      let result;
+      for(let i=0;i<900;i++){
+        result=await api(started.status_url);
+        const p=Math.max(0,Math.min(100,result.progress||0));
+        $("fill").style.width=p+"%";$("percent").textContent=p+"%";
+        $("status").textContent=result.message||"Rendering";
+        if(result.state==="done")break;
+        if(result.state==="failed")throw Error(result.message||"Rendering failed");
+        await sleep(1700);
+      }
+      if(result?.state!=="done")throw Error("The job has not finished yet. Refreshing the page may lose the job ID; please retry later.");
+      $("video").src=result.url;$("download").href=result.url;
+      $("visual").hidden=true;$("result").classList.add("show");showSources(result);
+      $("currentState").textContent="Done! Your MP4 is ready to preview and download.";
+    }catch(error){
+      $("status").textContent=error.message;$("status").classList.add("error");
+      $("currentState").textContent="Could not complete the motion video.";
+    }finally{running=false;$("create").disabled=false;$("create").textContent="✦ Research, animate & export video";}
+  }
+  $("create").addEventListener("click",create);init();
+})();
+</script>
+</body>
+</html>
