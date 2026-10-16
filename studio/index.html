@@ -88,6 +88,7 @@
     .chip span{max-width:164px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
     .chip .indicator{color:#b9f0c9}
     .chip button{background:transparent;border:0;color:#c5c9db;margin-left:3px;padding:0;font-size:14px}
+    .refine-box {margin-top:17px;border-top:1px solid #30344a;padding-top:16px}
     .tip {font-size:11px;line-height:1.55;color:#8f98af;padding-top:10px;margin:0}
     .center-panel{display:grid;gap:16px;min-width:0}
     .viewer{position:relative;padding:16px 17px 18px;background:linear-gradient(175deg,#151929,#10141f);
@@ -208,6 +209,12 @@
             <label class="custom-check"><input type="checkbox" id="aiToggle"> Use Gemini for AI planning <span style="font-size:10px;color:#828aa0">(optional API key)</span></label>
           </div>
           <button id="planBtn" class="btn primary full" style="margin-top:17px">✦ Create my edit plan <span aria-hidden="true">→</span></button>
+          <div class="refine-box">
+            <label for="reviseInput" class="fieldlabel" style="margin-top:0">↳ Ask the agent to change something</label>
+            <textarea id="reviseInput" rows="2" style="min-height:72px" placeholder="Make scene 2 slower, zoom into scene 1, use clean cuts..."></textarea>
+            <button id="reviseBtn" class="btn soft full" style="margin-top:9px">↻ Apply follow-up edit</button>
+            <div id="editLog" aria-live="polite" style="color:#a9b0c3;font-size:10px;line-height:1.6;margin-top:9px" hidden></div>
+          </div>
         </div>
         <div class="section">
           <div class="section-title"><span>03 · Global settings</span></div>
@@ -430,6 +437,26 @@
     }catch(err){toast(err.message);}
     finally{busy(button,false);}
   }
+  async function refinePlan(){
+    const instruction=$("reviseInput").value.trim();
+    if(!state.scenes.length){toast("Add some scenes before requesting edits.");return;}
+    if(!instruction){toast("Tell your agent what to change.");return;}
+    const button=$("reviseBtn");busy(button,true,"Applying edit...");
+    try{
+      const response=await api("/api/revise",{method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({plan:{ratio:state.ratio,quality:state.quality,transition:state.transition,
+          scenes:state.scenes},instructions:instruction,use_ai:$("aiToggle").checked})});
+      state.scenes=response.plan.scenes;state.transition=response.plan.transition;
+      state.selected=Math.min(Math.max(state.selected,0),state.scenes.length-1);
+      refresh();
+      $("editLog").hidden=false;
+      $("editLog").textContent="✓ "+response.message+(response.mode==="offline"?" · Offline editing rules":" · Gemini");
+      $("reviseInput").value="";
+      toast(response.message);
+    }catch(err){toast(err.message);}
+    finally{busy(button,false);}
+  }
+  $("reviseBtn").onclick=refinePlan;
   function mutate(update){const s=current();if(!s)return;update(s);refresh();}
   $("clipDuration").addEventListener("change",()=>mutate(s=>{
     const a=asset(s.media_id);const max=a.kind==="video"?(a.duration-s.trim_start)/s.speed:90;
