@@ -321,7 +321,7 @@
 (() => {
   "use strict";
   const $ = id => document.getElementById(id);
-  const state = {assets:[],scenes:[],selected:-1,music:null,voice:null,ratio:"9:16",transition:"fade",quality:"draft",rendering:false};
+  const state = {assets:[],scenes:[],selected:-1,music:null,voice:null,ratio:"9:16",transition:"fade",quality:"draft",rendering:false,maxScenes:40,freeMode:false};
   const effects = ["zoom_in","zoom_out","pan_left","pan_right","pan_up","pan_down","still"];
   let toastTimer;
   const toast = (message) => { const el=$("toast"); el.textContent=message; el.classList.add("show"); clearTimeout(toastTimer); toastTimer=setTimeout(()=>el.classList.remove("show"),4300); };
@@ -350,6 +350,7 @@
     toast("Uploading "+arr.length+" file"+(arr.length===1?"":"s")+"...");
     let count=0;
     for(const file of arr){
+      if(state.scenes.length>=state.maxScenes && !file.type.startsWith("audio/")){toast("This server supports "+state.maxScenes+" scenes per project.");break;}
       try{
         const record=await uploadFile(file);
         const newAsset={...record,localUrl:URL.createObjectURL(file)};
@@ -428,7 +429,7 @@
     if(a.kind==="video"){$("trimStart").value=scene.trim_start;$("trimStart").max=a.duration;$("clipSpeed").value=String(scene.speed);}
     $("moveLeft").disabled=state.selected===0;
     $("moveRight").disabled=state.selected===state.scenes.length-1;
-    $("duplicateClip").disabled=state.scenes.length>=40;
+    $("duplicateClip").disabled=state.scenes.length>=state.maxScenes;
   }
   function renderAssets(){
     const list=$("assetList");list.replaceChildren();
@@ -502,7 +503,7 @@
   function swap(direction){const i=state.selected,j=i+direction;if(i<0||j<0||j>=state.scenes.length)return;
     [state.scenes[i],state.scenes[j]]=[state.scenes[j],state.scenes[i]];state.selected=j;refresh();}
   $("moveLeft").onclick=()=>swap(-1);$("moveRight").onclick=()=>swap(1);
-  $("duplicateClip").onclick=()=>{if(!current()||state.scenes.length>=40)return;state.scenes.splice(state.selected+1,0,{...current()});state.selected++;refresh();};
+  $("duplicateClip").onclick=()=>{if(!current()||state.scenes.length>=state.maxScenes)return;state.scenes.splice(state.selected+1,0,{...current()});state.selected++;refresh();};
   $("removeClip").onclick=()=>{if(state.selected<0)return;state.scenes.splice(state.selected,1);state.selected=state.scenes.length?Math.min(state.selected,state.scenes.length-1):-1;refresh();};
   $("ratioSelect").onchange=e=>{state.ratio=e.target.value;refresh();};
   $("transitionSelect").onchange=e=>{state.transition=e.target.value;};
@@ -643,6 +644,14 @@
   };
   async function checkHealth(){
     try{const info=await api("/api/health");
+      state.maxScenes=info.max_scenes||40;
+      state.freeMode=!!info.free_mode;
+      if(info.free_mode){
+        $("qualitySelect").querySelector('option[value="hd"]').disabled=true;
+        $("qualitySelect").value="draft";state.quality="draft";
+        $("dropzone").querySelector("span").textContent="Photos & videos · Up to "+info.max_upload_mb+" MB per file";
+        $("stageBadge").title="Free server: draft-quality renders only";
+      }
       $("engineStatus").textContent=info.ffmpeg?"Render engine online":"FFmpeg missing on server";
       $("engineDot").style.background=info.ffmpeg?"#baf4cc":"#f4b183";
       $("aiToggle").title=info.gemini_configured?"Gemini API key configured":"No Gemini key configured; offline planner will be used";
