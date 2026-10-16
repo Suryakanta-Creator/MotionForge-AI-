@@ -8,12 +8,12 @@ A lightweight, prompt-directed video editor built with **FastAPI + FFmpeg + vani
 - Upload JPG/PNG/WebP images, MP4/MOV/WebM clips, and MP3/WAV/M4A audio.
 - Build scenes with zoom, pan/scroll, or still-image effects; trim and change speed for video clips.
 - Arrange scenes, set captions and durations, choose cuts or fades.
-- Optional background music and narration tracks.
+- Optional background music and narration tracks, including AI-generated WAV narration from a consented voice sample.
 - Render actual MP4s with 9:16, 16:9 or 1:1 aspect ratio.
 - Prompt-to-edit planning and follow-up editing instructions: offline rules by default; optional Gemini model when configured.
 - View render progress and preview/download the result.
 
-**Important:** This is an editor, *not* a text-to-video diffusion model. It needs uploaded media (or the built-in generated illustration demo). It does not yet animate characters, generate images or automatically create speech.
+**Important:** This is an editor, *not* a text-to-video diffusion model. It needs uploaded media (or the built-in generated illustration demo). It does not animate characters or generate images. Optional Chatterbox speech synthesis is available with a separate local install.
 
 ## Run locally
 
@@ -35,6 +35,29 @@ Open **http://localhost:7860** on your computer; for phone access on the same Wi
 
 Once your timeline exists, use **Ask the agent to change something**. Examples: `zoom into scene 2`, `make scene 1 5 seconds`, `use clean cuts`, `remove scene 3`, `caption: A peaceful morning` or `make the last scene slower`. Without a Gemini key, the transparent rule-based interpreter handles these limited commands. With Gemini configured, it can attempt more flexible revisions; every plan is validated before rendering. The follow-up agent changes the edit instructions, not the contents of the underlying source video.
 
+## Optional free local voice cloning
+
+MotionForge's **AI voice lab** uses [Resemble AI Chatterbox Multilingual](https://github.com/resemble-ai/chatterbox) for zero-shot voice cloning. It runs locally without a paid speech API, but requires significant CPU/GPU resources and an initial model-weight download. The default video editor runs without it.
+
+**License:** Chatterbox is MIT-licensed. The referenced project's software and model terms should still be checked before production/commercial deployment. OmniVoice's pretrained weights are CC-BY-NC and are deliberately **not** bundled here. Only clone your own voice or a voice whose speaker explicitly agreed to cloning; don't use it for deception or impersonation.
+
+Recommended environment: Python 3.11 with FFmpeg / ffprobe already installed.
+
+```bash
+pip install -r requirements-voice.txt
+python server.py
+```
+
+Go to **Audio tracks → AI voice lab**, choose a clean 3–30 second spoken audio reference (WAV/MP3/M4A supported), choose **Hindi** or **English**, paste a narration script, confirm consent, and click **Generate cloned narration**. Voice generation runs as a queued background job. When finished, the WAV automatically becomes the video's narration track; you can preview it and save it. Your existing background music continues to work.
+
+The model supports 23 languages; the language selector shows the full published set if the optional engine is installed. **Odia is not among its officially supported languages**, so this feature does not promise Odia output. A 9,000-character text input is divided into smaller speech chunks; large scripts can take considerable time to synthesize. Generated reference files and narration remain in local `user_data/uploads` unless manually removed.
+
+Optional: Set `MOTIONFORGE_VOICE_DEVICE=cuda` (NVIDIA GPU), `mps` (Apple Silicon), or `cpu` (slow). The default setting automatically chooses an available device.
+
+API routes: `GET /api/voice/status`, `POST /api/voice/generate`, `GET /api/jobs/{job_id}`, and `GET /api/media/{media_id}`. Voice generation refuses non-audio reference IDs, non-consented requests, unsupported languages and clips outside 3–30 seconds.
+
+**Safety and privacy:** The server is intended for private/local use. It does not provide authentication or quotas for public production use (beyond a small voice-job queue), and keeps voice references and generated audio on disk. Before any public deployment, add authentication, abuse prevention, upload cleanup, storage quotas and rate limiting. Avoid uploading voices to shared servers without speaker consent.
+
 ## Optional Gemini AI planning
 
 ```bash
@@ -55,7 +78,7 @@ This repo includes a `Dockerfile` for any container host with persistent storage
 - Intended for local/private trusted use in its current MVP form.
 - Uploaded files and exports are saved to `MOTIONFORGE_DATA` (default `./user_data`) and not automatically deleted. Do not upload sensitive media to shared instances.
 - Source footage audio is currently muted in the finished movie; upload a music or narration track if needed.
-- No login, persistent asset registry, cloud storage, shared collaborative editing, billing, voice synthesis, automatic subtitles, or autonomous asset generation yet.
+- No login, persistent asset registry, cloud storage, shared collaborative editing, billing, automatic subtitles, or autonomous asset generation yet. Optional local voice synthesis requires a separate install.
 - Jobs and upload references are kept in server memory; a restart clears the active session.
 - 100 MB per upload, 40-scene projects, 10-minute render limit. Rendering takes longer for large scenes or high resolution.
 - Use only media and music you have rights to use.
