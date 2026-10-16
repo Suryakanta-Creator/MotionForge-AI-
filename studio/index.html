@@ -13,6 +13,7 @@
       --shadow:0 16px 50px rgba(0,0,0,.24); --radius:18px
     }
     * { box-sizing:border-box }
+    [hidden] { display:none!important }
     html { font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; background:var(--bg) }
     body { margin:0; color:var(--text); min-height:100vh; background:
       radial-gradient(ellipse 60% 35% at 57% -9%,rgba(105,73,229,.18),transparent 70%), var(--bg) }
@@ -386,6 +387,8 @@
     $("clipDuration").value=scene.duration;
     $("clipDuration").max=a.kind==="video"?Math.min(90,Math.max(.5,(a.duration-scene.trim_start)/scene.speed)):90;
     $("clipEffect").value=scene.effect;
+    $("clipEffect").disabled=a.kind==="video";
+    $("clipEffect").title=a.kind==="video"?"Camera movement affects still images only":"Select an animated camera move";
     $("clipCaption").value=scene.caption;
     $("footageOptions").hidden=a.kind!=="video";
     if(a.kind==="video"){$("trimStart").value=scene.trim_start;$("trimStart").max=a.duration;$("clipSpeed").value=String(scene.speed);}
