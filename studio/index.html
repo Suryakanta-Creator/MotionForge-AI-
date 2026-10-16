@@ -1,0 +1,527 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#090b12">
+  <title>MotionForge AI — Creative Studio</title>
+  <meta name="description" content="MotionForge AI. Plan, animate, edit, and export beautiful videos using your images and clips.">
+  <style>
+    :root {
+      color-scheme:dark; --bg:#090b12; --panel:#111522; --panel2:#151a29; --muted:#868da3;
+      --text:#f7f7fc; --line:#282e42; --lav:#a89aff; --purple:#785bf5; --mint:#baf4cc;
+      --shadow:0 16px 50px rgba(0,0,0,.24); --radius:18px
+    }
+    * { box-sizing:border-box }
+    html { font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; background:var(--bg) }
+    body { margin:0; color:var(--text); min-height:100vh; background:
+      radial-gradient(ellipse 60% 35% at 57% -9%,rgba(105,73,229,.18),transparent 70%), var(--bg) }
+    button,input,textarea,select { font:inherit }
+    button {cursor:pointer}
+    a {color:inherit;text-decoration:none}
+    .app { max-width:1660px; margin:auto; min-height:100vh }
+    .top { min-height:76px; display:flex; align-items:center;justify-content:space-between;gap:16px;
+      padding:13px clamp(18px,2.7vw,40px);border-bottom:1px solid #222637;background:#0b0e17cc;backdrop-filter:blur(18px); position:sticky;top:0;z-index:20 }
+    .brand { display:flex;align-items:center;gap:13px }
+    .logo { width:39px;height:39px;border-radius:13px;background:linear-gradient(135deg,#9a8aff,#5b40da);
+      display:grid;place-items:center;box-shadow:0 6px 22px #785bf53e;font-size:21px;font-weight:900 }
+    .brand h1{font-size:17px;letter-spacing:-.45px;margin:0;line-height:1.05}
+    .brand small{color:#aeb1c4;font-size:10px;font-weight:700;letter-spacing:1.85px}
+    .top-center{color:#a4adc3;display:flex;align-items:center;gap:7px;font-size:12px}
+    .tiny-dot{width:7px;height:7px;border-radius:50%;background:var(--mint);box-shadow:0 0 11px #baf4cc77;display:inline-block}
+    .right-header { display:flex;align-items:center;gap:10px }
+    .pill {border:1px solid #35344f;border-radius:99px;background:#1a1930;color:#c8c0ff;font-size:11px;font-weight:700;padding:8px 12px;white-space:nowrap}
+    .ghost-link {font-size:12px;color:#aaabc0;border:1px solid var(--line);padding:8px 13px;border-radius:11px}
+    .shell {padding:27px clamp(18px,2.7vw,40px) 45px}
+    .title-row {display:flex;justify-content:space-between;align-items:flex-end;gap:16px;margin-bottom:24px;flex-wrap:wrap}
+    .eyebrow{color:var(--lav);font-size:10px;letter-spacing:2.1px;font-weight:850;text-transform:uppercase;margin:0 0 9px}
+    .title-row h2{font-size:clamp(25px,2.5vw,35px);line-height:1.14;letter-spacing:-1.25px;margin:0 0 8px}
+    .subtitle {color:var(--muted);font-size:13px;margin:0;line-height:1.6}
+    .workflow {display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+    .step {padding:8px 11px;border-radius:9px;background:#141827;border:1px solid #282d41;font-size:11px;color:#929aae}
+    .step.active{border-color:#6e63ab;color:#e3dcff;background:#211d39}
+    .step b{margin-right:5px}
+    .workspace {display:grid;grid-template-columns:minmax(270px,310px) minmax(340px,1fr) minmax(266px,298px);align-items:start;gap:17px}
+    .panel {background:linear-gradient(175deg,#151a29ee,#101420ee);border:1px solid #282e3e;border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
+    .panel-head{padding:20px 20px 15px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+    .panel-head h3 {margin:0;font-size:14px;letter-spacing:-.15px}
+    .panel-head p {color:#747f98;font-size:11px;margin:4px 0 0}
+    .section {padding:17px 19px;border-top:1px solid #292e3f}
+    .section:first-child{border-top:0}
+    .section-title{display:flex;align-items:center;justify-content:space-between;font-weight:750;font-size:12px;margin-bottom:12px}
+    .small-muted{color:var(--muted);font-size:11px}
+    .fieldlabel{font-size:11px;color:#aeb5c9;display:block;font-weight:650;margin:14px 0 8px}
+    textarea,input[type=number],input[type=text],select {background:#0b0f1a;color:#eef1fd;border:1px solid #32374c;
+      border-radius:10px;outline:none;width:100%;transition:border .16s,box-shadow .16s}
+    textarea:focus,input:focus,select:focus {border-color:#a196fa;box-shadow:0 0 0 3px #806cfd23}
+    textarea{resize:vertical;padding:12px 13px;line-height:1.55;font-size:12px;min-height:112px}
+    input[type=number],input[type=text],select{height:37px;padding:0 10px;font-size:12px}
+    input[type=range]{width:100%;accent-color:#9f88ff;cursor:pointer}
+    .fieldrow{display:flex;gap:10px;align-items:center}.fieldrow>*{flex:1;min-width:0}
+    .fieldrow.tight{justify-content:space-between;gap:8px}
+    .fieldrow.tight>*{flex:unset}
+    .custom-check{display:flex;align-items:center;gap:9px;color:#afb8cb;font-size:11px;cursor:pointer}
+    .custom-check input {accent-color:var(--purple);width:16px;height:16px}
+    .stack{display:grid;gap:10px}
+    .btn {border-radius:11px;border:1px solid #373a51;padding:11px 14px;font-size:12px;font-weight:750;
+      background:#202538;color:#efeffb;display:inline-flex;align-items:center;justify-content:center;gap:8px;
+      transition:transform .14s,filter .14s,border .14s;white-space:nowrap}
+    .btn:hover:not(:disabled){transform:translateY(-1px);filter:brightness(1.13);border-color:#716ca7}
+    .btn:active:not(:disabled){transform:translateY(0)}
+    .btn:disabled{opacity:.48;cursor:not-allowed}
+    .btn.primary {background:linear-gradient(115deg,#ae92ff,#7c62f7);color:#121023;border-color:#bdadff;box-shadow:0 8px 20px #7759e72f}
+    .btn.mint {background:#baf4cc;border-color:#cdfad8;color:#0d2216}
+    .btn.soft{background:#171b2a;color:#c5c8db}
+    .btn.full {width:100%}
+    .btn.iconbtn{padding:8px 10px;min-width:35px}
+    .btn svg{height:15px;width:15px;stroke:currentColor;fill:none;stroke-width:1.9}
+    .dropzone{border:1.5px dashed #5b567b;background:radial-gradient(ellipse at top,#2b244b7a,#111522 70%);
+      border-radius:13px;display:grid;place-items:center;text-align:center;min-height:157px;padding:19px 13px;cursor:pointer;transition:.15s}
+    .dropzone:hover,.dropzone.drag{background:#292345;border-color:#b6a0ff}
+    .drop-icon{display:grid;place-items:center;width:39px;height:39px;border-radius:11px;background:#373052;color:#b5a4ff;font-size:23px;margin-bottom:10px}
+    .dropzone strong{display:block;font-size:12px;margin-bottom:5px}
+    .dropzone span{font-size:11px;color:#9d9db7}
+    .asset-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+    .chip{display:flex;align-items:center;gap:5px;background:#22283b;border:1px solid #383f54;border-radius:8px;
+      max-width:100%;padding:6px 8px;color:#c9cedd;font-size:10px}
+    .chip span{max-width:164px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+    .chip .indicator{color:#b9f0c9}
+    .chip button{background:transparent;border:0;color:#c5c9db;margin-left:3px;padding:0;font-size:14px}
+    .tip {font-size:11px;line-height:1.55;color:#8f98af;padding-top:10px;margin:0}
+    .center-panel{display:grid;gap:16px;min-width:0}
+    .viewer{position:relative;padding:16px 17px 18px;background:linear-gradient(175deg,#151929,#10141f);
+      border:1px solid #2a2e40;border-radius:var(--radius);min-width:0}
+    .viewer-top{display:flex;align-items:center;justify-content:space-between;padding-bottom:13px;gap:10px}
+    .viewer-top strong{font-size:13px}
+    .viewer-label{font-size:11px;color:#8894aa}
+    .status-round{height:7px;width:7px;border-radius:50%;background:#adffcb;display:inline-block}
+    .preview-shell{min-height:428px;border-radius:13px;display:grid;place-items:center;position:relative;
+      overflow:hidden;background:radial-gradient(ellipse at center,#2a2746,#0c101b 70%);
+      border:1px solid #282d42}
+    .preview-shell:before{content:"";position:absolute;inset:0;
+      background-image:linear-gradient(#ffffff07 1px,transparent 1px),linear-gradient(90deg,#ffffff07 1px,transparent 1px);
+      background-size:28px 28px;pointer-events:none}
+    .stage{position:relative;aspect-ratio:9/16;height:min(380px,52vh);max-width:91%;overflow:hidden;
+      background:linear-gradient(135deg,#241b42,#1a223e);box-shadow:0 22px 60px #0008;border-radius:4px;
+      border:1px solid #ffffff25;isolation:isolate}
+    .stage img,.stage video{display:block;width:100%;height:100%;object-fit:cover;position:absolute;inset:0}
+    .stage img.animate{animation:cameraMove 5s ease-in-out infinite alternate}
+    .stage img.effect-zoom_in{--from:scale(1);--to:scale(1.15)}
+    .stage img.effect-zoom_out{--from:scale(1.15);--to:scale(1)}
+    .stage img.effect-pan_left{--from:scale(1.16) translateX(6%);--to:scale(1.16) translateX(-6%)}
+    .stage img.effect-pan_right{--from:scale(1.16) translateX(-6%);--to:scale(1.16) translateX(6%)}
+    .stage img.effect-pan_up{--from:scale(1.16) translateY(6%);--to:scale(1.16) translateY(-6%)}
+    .stage img.effect-pan_down{--from:scale(1.16) translateY(-6%);--to:scale(1.16) translateY(6%)}
+    .stage img.effect-still{--from:scale(1.015);--to:scale(1.015)}
+    @keyframes cameraMove{from{transform:var(--from)}to{transform:var(--to)}}
+    .stage-caption{position:absolute;bottom:13%;left:9%;width:82%;padding:12px 10px;border-radius:8px;
+      background:#080914ba;color:white;font-size:clamp(10px,1.15vw,14px);font-weight:800;text-align:center;
+      line-height:1.4;text-shadow:0 1px 2px #000}
+    .empty-stage{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+      text-align:center;padding:20px;background:radial-gradient(circle at 50% 35%,#6d55bb38,transparent 65%),#191b33}
+    .empty-stage .big-ring{width:72px;height:72px;border:1px solid #8979c9;border-radius:21px;display:grid;
+      place-items:center;font-size:26px;background:#6753933b;margin-bottom:19px;color:#cabfff}
+    .empty-stage h3{margin:0 0 7px;font-size:14px}.empty-stage p{color:#9699b5;font-size:11px;line-height:1.65;margin:0}
+    .stage-badge{position:absolute;bottom:11px;right:12px;font-size:10px;color:#c4bed7;background:#080a16a9;border:1px solid #ffffff23;padding:6px 8px;border-radius:6px}
+    .preview-footer{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:14px;flex-wrap:wrap}
+    .preview-footer span{font-size:11px;color:#a1a8ba}
+    .timeline{padding:20px;background:linear-gradient(170deg,#151928,#101420);border:1px solid #292f40;border-radius:var(--radius)}
+    .timeline-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:14px}
+    .timeline-head strong{font-size:13px}.timeline-head small{font-size:11px;color:#8992a9}
+    .timeline-track{display:flex;gap:9px;overflow-x:auto;min-height:147px;padding:4px 0 10px;scrollbar-width:thin}
+    .timeline-clip{width:105px;min-width:105px;border-radius:11px;background:#22283c;border:1px solid #303951;
+      padding:6px;cursor:pointer;color:#dfe3f2;text-align:left;transition:.12s}
+    .timeline-clip.selected{border-color:#b09bff;background:#2e2a4e;box-shadow:0 0 0 2px #a48cfc2a}
+    .clip-thumb{height:77px;border-radius:7px;background:#111724;overflow:hidden;position:relative}
+    .clip-thumb img,.clip-thumb video{width:100%;height:100%;object-fit:cover}
+    .clip-num{position:absolute;top:5px;left:5px;border-radius:5px;background:#0d0d17c2;color:white;font-size:9px;padding:3px 5px}
+    .clip-meta{display:flex;justify-content:space-between;gap:4px;margin-top:7px}
+    .clip-meta span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px}
+    .clip-meta small{color:#b7afe3;font-size:10px}
+    .timeline-empty{display:grid;place-items:center;color:#77829c;font-size:12px;text-align:center;border:1px dashed #333a51;border-radius:11px;width:100%;padding:22px}
+    .timeline-note{font-size:10px;color:#8e94a7;margin-top:8px;line-height:1.5}
+    .inspector-empty{color:#8c95aa;font-size:12px;line-height:1.7;border:1px dashed #424157;border-radius:12px;padding:22px;text-align:center}
+    .audio-row{border:1px solid #34384e;border-radius:10px;padding:12px;background:#171b2c;margin-top:10px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+    .audio-row strong{display:block;font-size:12px}.audio-row small{display:block;color:#868faa;font-size:10px;margin-top:5px;white-space:nowrap;max-width:159px;overflow:hidden;text-overflow:ellipsis}
+    .small-control{font-size:10px;border:1px solid #4a4b65;color:#ddd6ff;background:#27233f;border-radius:8px;padding:6px 9px;font-weight:800}
+    .export-head{background:radial-gradient(ellipse at 100% 0,#6550ae66,transparent 64%);padding:19px}
+    .export-head h3{font-size:15px;margin:0 0 5px}.export-head p{font-size:11px;color:#a3a6bb;margin:0}
+    .progress-wrap{margin-top:12px;display:none}
+    .progress-wrap.show{display:block}
+    .progress-track{height:7px;background:#2f3448;border-radius:20px;overflow:hidden}
+    .progress-fill{height:100%;background:linear-gradient(90deg,#8f73f5,#baf4cc);width:0%;transition:width .3s}
+    .result{display:none;margin-top:15px;padding:10px;border-radius:12px;background:#0d111b;border:1px solid #394257}
+    .result.show{display:block}
+    .result video{width:100%;max-height:290px;background:black;border-radius:8px}
+    .result a{margin-top:9px;display:flex;text-align:center}
+    .footer-note{color:#737d98;font-size:11px;text-align:center;margin-top:22px}
+    .toast{position:fixed;bottom:22px;left:50%;transform:translate(-50%,25px);background:#29213f;border:1px solid #7667b3;
+      color:white;padding:12px 17px;border-radius:12px;max-width:min(530px,90vw);z-index:40;box-shadow:0 14px 50px #0009;
+      font-size:12px;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s}
+    .toast.show{opacity:1;transform:translate(-50%,0)}
+    .sr-only{position:absolute;clip:rect(0,0,0,0);width:1px;height:1px;overflow:hidden}
+    @media(max-width:1180px){.workspace{grid-template-columns:minmax(250px,300px) minmax(310px,1fr)}.inspector{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;align-items:start}.inspector>.panel-head{grid-column:1/-1}.inspector>.section{border-top:1px solid #292e3f}}
+    @media(max-width:740px){.top{padding:12px 16px;min-height:66px}.top-center,.ghost-link{display:none}.shell{padding:22px 14px 35px}.title-row{margin-bottom:19px}.workflow{display:none}.workspace{display:flex;flex-direction:column}.workspace>*{width:100%}.viewer{order:-1}.preview-shell{min-height:380px}.stage{height:350px}.inspector{display:block}.title-row h2{font-size:29px}.footer-note{line-height:1.65}.section{padding:15px}.viewer{padding:13px}}
+    @media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;animation-duration:.01ms!important;transition-duration:.01ms!important}}
+  </style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="brand"><div class="logo" aria-hidden="true">◈</div><div><h1>MotionForge <span style="color:#ad9bff">AI</span></h1><small>CREATIVE VIDEO STUDIO</small></div></div>
+    <div class="top-center"><span class="tiny-dot" id="engineDot"></span><span id="engineStatus">Checking render engine...</span></div>
+    <div class="right-header"><span class="pill">BETA · V0.3</span><a class="ghost-link" href="https://github.com/Suryakanta-Creator/MotionForge-AI-" rel="noopener noreferrer" target="_blank">GitHub ↗</a></div>
+  </header>
+  <main class="shell">
+    <div class="title-row">
+      <div><p class="eyebrow">YOUR CREATIVE WORKSPACE</p><h2>Bring your stories to motion<span style="color:#ae96ff">.</span></h2>
+        <p class="subtitle">Turn images and footage into smooth, polished videos — without complicated timelines.</p></div>
+      <div class="workflow" aria-label="Editing workflow"><span class="step active"><b>01</b> Add media</span><span style="color:#4f536d">→</span><span class="step"><b>02</b> Direct your edit</span><span style="color:#4f536d">→</span><span class="step"><b>03</b> Export MP4</span></div>
+    </div>
+    <div class="workspace">
+      <section class="panel">
+        <div class="panel-head"><div><h3>✦ Creative director</h3><p>Describe how your video should feel</p></div><span class="pill">AGENT</span></div>
+        <div class="section">
+          <div class="section-title"><span>01 · Your media</span><span class="small-muted" id="assetCount">0 files</span></div>
+          <div class="dropzone" id="dropzone" role="button" tabindex="0" aria-label="Upload images and video clips">
+            <div class="drop-icon">↑</div><strong>Drop media or tap to browse</strong>
+            <span>Photos &amp; videos · Up to 100 MB per file</span>
+          </div>
+          <input id="mediaInput" class="sr-only" type="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime" multiple>
+          <div class="asset-chips" id="assetList" aria-live="polite"></div>
+          <div class="fieldrow" style="margin-top:11px">
+            <button class="btn soft full" id="demoBtn" type="button">✳ Try sample project</button>
+          </div>
+        </div>
+        <div class="section">
+          <div class="section-title"><span>02 · Describe your edit</span><span class="small-muted">Text → timeline</span></div>
+          <label for="promptInput" class="sr-only">Editing instructions</label>
+          <textarea id="promptInput" placeholder="Describe what you want...">Make a peaceful village montage with gentle zoom-ins, slow vertical scrolling, and soft transitions. No dialogue or captions.</textarea>
+          <p class="tip">Try: “Slow scroll through the frames, zoom in gently, and show caption: A peaceful morning.”</p>
+          <div class="fieldrow" style="margin-top:15px">
+            <div><label for="ratioSelect" class="fieldlabel" style="margin-top:0">Canvas</label><select id="ratioSelect"><option value="9:16">9:16 · Shorts</option><option value="16:9">16:9 · Wide</option><option value="1:1">1:1 · Square</option></select></div>
+            <div><label for="durationRange" class="fieldlabel" style="margin-top:0">Scene duration <span id="durationValue" style="color:#c9beff">3s</span></label><input type="range" id="durationRange" min="1" max="12" step=".5" value="3"></div>
+          </div>
+          <div class="stack" style="margin-top:15px">
+            <label class="custom-check"><input type="checkbox" id="captionsToggle"> Include requested on-screen captions</label>
+            <label class="custom-check"><input type="checkbox" id="aiToggle"> Use Gemini for AI planning <span style="font-size:10px;color:#828aa0">(optional API key)</span></label>
+          </div>
+          <button id="planBtn" class="btn primary full" style="margin-top:17px">✦ Create my edit plan <span aria-hidden="true">→</span></button>
+        </div>
+        <div class="section">
+          <div class="section-title"><span>03 · Global settings</span></div>
+          <div class="fieldrow">
+            <div><label class="fieldlabel" style="margin-top:0" for="transitionSelect">Transitions</label><select id="transitionSelect"><option value="fade">Soft fade</option><option value="cut">Clean cut</option></select></div>
+            <div><label class="fieldlabel" style="margin-top:0" for="qualitySelect">Render quality</label><select id="qualitySelect"><option value="draft">Draft · Fast</option><option value="hd">HD · 720p</option></select></div>
+          </div>
+        </div>
+      </section>
+
+      <div class="center-panel">
+        <section class="viewer">
+          <div class="viewer-top"><strong>◉ Live canvas preview</strong><span class="viewer-label"><span class="status-round"></span> Motion approximation</span></div>
+          <div class="preview-shell">
+            <div class="stage" id="stage">
+              <div class="empty-stage" id="emptyStage"><div class="big-ring">▶</div><h3>Your story starts here</h3><p>Add your first image or video<br>to preview its movement.</p></div>
+              <div id="stageCaption" class="stage-caption" hidden></div>
+            </div>
+            <span class="stage-badge" id="stageBadge">9:16 · 24 FPS</span>
+          </div>
+          <div class="preview-footer"><span id="currentSceneLabel">No scene selected</span><span>Actual transitions appear in the exported video</span></div>
+        </section>
+        <section class="timeline">
+          <div class="timeline-head"><strong>▤ Your timeline <span style="font-size:11px;color:#a59dcf" id="sceneCount">(0 clips)</span></strong><small id="totalTime">0:00 total</small></div>
+          <div class="timeline-track" id="timeline" aria-label="Editable video timeline"><div class="timeline-empty">Your scenes will appear here after you upload media.</div></div>
+          <p class="timeline-note">Tap a scene to edit it on the right. Reorder with the move buttons. Preview shows approximate motion; exported MP4 is rendered by FFmpeg.</p>
+        </section>
+      </div>
+
+      <aside class="panel inspector">
+        <div class="panel-head"><div><h3>⚙ Scene inspector</h3><p>Fine-tune every shot</p></div><span class="pill" id="inspectorBadge">EMPTY</span></div>
+        <div class="section"><div id="inspectorEmpty" class="inspector-empty">Select a scene on your timeline to adjust its motion, timing, and text.</div>
+          <div id="inspectorForm" hidden>
+            <strong id="clipName" style="display:block;font-size:12px;overflow-wrap:anywhere"></strong>
+            <div class="fieldrow">
+              <div><label class="fieldlabel" for="clipDuration">Duration (sec)</label><input type="number" id="clipDuration" min=".5" max="90" step=".5"></div>
+              <div><label class="fieldlabel" for="clipEffect">Movement</label><select id="clipEffect">
+                <option value="zoom_in">Zoom in</option><option value="zoom_out">Zoom out</option>
+                <option value="pan_left">Pan left</option><option value="pan_right">Pan right</option>
+                <option value="pan_up">Scroll up</option><option value="pan_down">Scroll down</option>
+                <option value="still">Still</option></select></div>
+            </div>
+            <div id="footageOptions" hidden>
+              <div class="fieldrow"><div><label class="fieldlabel" for="trimStart">Start at (sec)</label><input type="number" id="trimStart" min="0" step=".1"></div>
+              <div><label class="fieldlabel" for="clipSpeed">Playback speed</label><select id="clipSpeed"><option value=".5">0.5×</option><option value=".75">0.75×</option><option value="1">1×</option><option value="1.5">1.5×</option><option value="2">2×</option></select></div></div>
+            </div>
+            <label class="fieldlabel" for="clipCaption">On-screen text (optional)</label><input type="text" id="clipCaption" maxlength="140" placeholder="Add a short title...">
+            <div class="fieldrow" style="margin-top:13px">
+              <button class="btn iconbtn soft" id="moveLeft" title="Move scene earlier" aria-label="Move scene earlier">←</button>
+              <button class="btn iconbtn soft" id="moveRight" title="Move scene later" aria-label="Move scene later">→</button>
+              <button class="btn soft" id="duplicateClip" style="flex:1">Duplicate</button>
+              <button class="btn soft" id="removeClip" style="color:#f3a8ac;flex:1">Remove</button>
+            </div>
+          </div>
+        </div>
+        <div class="section">
+          <div class="section-title"><span>♫ Audio tracks</span></div>
+          <div class="audio-row"><div><strong>Background music</strong><small id="musicFilename">No audio selected</small></div><button class="small-control" id="musicBtn">+ Add</button><input type="file" id="musicInput" class="sr-only" accept="audio/*"></div>
+          <div class="audio-row"><div><strong>Narration / voice</strong><small id="voiceFilename">No audio selected</small></div><button class="small-control" id="voiceBtn">+ Add</button><input type="file" id="voiceInput" class="sr-only" accept="audio/*"></div>
+          <p class="tip">Use audio you own or have permission to use. Voice audio is uploaded, not synthesized here.</p>
+        </div>
+        <div class="export-head">
+          <h3>Ready to make it real?</h3><p>Render a shareable MP4 with your selected scenes and soundtrack.</p>
+          <button id="exportBtn" class="btn mint full" style="margin-top:16px" disabled>↗ Export video MP4</button>
+          <div id="progressWrap" class="progress-wrap" role="status" aria-live="polite"><div class="fieldrow tight" style="margin:0 0 8px"><span id="progressText" class="small-muted">Preparing export...</span><span id="progressPct" class="small-muted">0%</span></div>
+            <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div></div>
+          <div class="result" id="result"><video controls playsinline id="resultVideo"></video><a class="btn mint full" id="downloadLink" href="#" download="MotionForge-export.mp4">↓ Download finished video</a></div>
+        </div>
+      </aside>
+    </div>
+    <p class="footer-note">MotionForge AI · Simple motion, smart editing, real MP4 exports · Built for makers, storytellers &amp; curious creators</p>
+  </main>
+</div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+(() => {
+  "use strict";
+  const $ = id => document.getElementById(id);
+  const state = {assets:[],scenes:[],selected:-1,music:null,voice:null,ratio:"9:16",transition:"fade",quality:"draft",rendering:false};
+  const effects = ["zoom_in","zoom_out","pan_left","pan_right","pan_up","pan_down","still"];
+  let toastTimer;
+  const toast = (message) => { const el=$("toast"); el.textContent=message; el.classList.add("show"); clearTimeout(toastTimer); toastTimer=setTimeout(()=>el.classList.remove("show"),4300); };
+  const secs = n => {const s=Math.round(Number(n)||0);return Math.floor(s/60)+":"+String(s%60).padStart(2,"0");};
+  const asset = id => state.assets.find(a=>a.id===id);
+  const duration = ()=>state.scenes.reduce((sum,s)=>sum+Number(s.duration||0),0);
+  const current = ()=>state.scenes[state.selected];
+  async function api(path,options={}) {
+    let res;
+    try {res=await fetch(path,options);}
+    catch {throw Error("Cannot reach the rendering server. Is it running?");}
+    if(!res.ok){let error;try{error=(await res.json()).detail}catch{};throw Error(typeof error==="string"?error:"Server error "+res.status);}
+    return res.json();
+  }
+  async function uploadFile(file){
+    const payload=new FormData();payload.append("file",file);
+    return api("/api/upload",{method:"POST",body:payload});
+  }
+  function busy(button,isBusy,text){
+    if(isBusy){button.dataset.original=button.textContent;button.disabled=true;button.textContent=text||"Working...";}
+    else{button.disabled=false;if(button.dataset.original)button.textContent=button.dataset.original;}
+  }
+  async function addMedia(files){
+    const arr=Array.from(files||[]);
+    if(!arr.length)return;
+    toast("Uploading "+arr.length+" file"+(arr.length===1?"":"s")+"...");
+    let count=0;
+    for(const file of arr){
+      try{
+        const record=await uploadFile(file);
+        const newAsset={...record,localUrl:URL.createObjectURL(file)};
+        state.assets.push(newAsset);
+        if(record.kind==="audio"){if(!state.music){state.music=newAsset;$("musicFilename").textContent=file.name;} else if(!state.voice){state.voice=newAsset;$("voiceFilename").textContent=file.name;}}
+        else{
+          const sec=Number($("durationRange").value);
+          state.scenes.push({media_id:record.id,duration:record.kind==="video"?Math.min(sec,record.duration):sec,trim_start:0,speed:1,effect:effects[(state.scenes.length-1)%6],caption:""});
+          count++;
+        }
+      }catch(err){toast(file.name+": "+err.message);}
+    }
+    if(count && state.selected===-1)state.selected=0;
+    refresh();
+    if(count)toast("Added "+count+" scene"+(count===1?"":"s")+". Ready to edit!");
+  }
+  function preview(){
+    const el=$("stage"),scene=current(),media=scene&&asset(scene.media_id);
+    for(const old of el.querySelectorAll("img,video"))old.remove();
+    const blank=$("emptyStage"),caption=$("stageCaption");
+    blank.hidden=!!media;
+    caption.hidden=!scene?.caption;
+    caption.textContent=scene?.caption||"";
+    $("currentSceneLabel").textContent=media?media.name+" · Scene "+(state.selected+1):"No scene selected";
+    $("stageBadge").textContent=state.ratio+" · 24 FPS";
+    el.style.aspectRatio=state.ratio.replace(":","/");
+    if(!media)return;
+    let node;
+    if(media.kind==="image"){
+      node=document.createElement("img");node.alt=media.name;
+      node.className="animate effect-"+scene.effect;
+      node.style.animationDuration=Math.max(2,scene.duration)+"s";
+    }else{
+      node=document.createElement("video");node.muted=true;node.loop=true;node.playsInline=true;node.autoplay=true;node.controls=false;
+      node.onloadedmetadata=()=>{if(scene.trim_start<node.duration)node.currentTime=scene.trim_start;};
+      node.playbackRate=scene.speed;
+    }
+    node.src=media.localUrl||media.url;
+    el.insertBefore(node,blank);
+    if(media.kind==="video")node.play().catch(()=>{});
+  }
+  function renderTimeline(){
+    const track=$("timeline");track.replaceChildren();
+    $("sceneCount").textContent="("+state.scenes.length+" clips)";
+    $("totalTime").textContent=secs(duration())+" total";
+    if(!state.scenes.length){const msg=document.createElement("div");msg.className="timeline-empty";msg.textContent="Your scenes will appear here after you upload media.";track.append(msg);return;}
+    state.scenes.forEach((scene,index)=>{
+      const a=asset(scene.media_id),clip=document.createElement("button");clip.type="button";
+      clip.className="timeline-clip"+(index===state.selected?" selected":"");
+      clip.setAttribute("aria-label","Select scene "+(index+1)+" "+(a?.name||""));
+      const thumb=document.createElement("div");thumb.className="clip-thumb";
+      if(a){if(a.kind==="image"){let img=document.createElement("img");img.src=a.localUrl||a.url;img.alt="";thumb.append(img);}
+      else{const v=document.createElement("video");v.src=a.localUrl||a.url;v.muted=true;v.preload="metadata";v.setAttribute("aria-hidden","true");thumb.append(v);}}
+      const num=document.createElement("span");num.className="clip-num";num.textContent=String(index+1).padStart(2,"0");thumb.append(num);
+      const meta=document.createElement("div");meta.className="clip-meta";
+      const name=document.createElement("span");name.textContent=a?.name||"Media unavailable";name.title=name.textContent;
+      const time=document.createElement("small");time.textContent=scene.duration+"s";
+      meta.append(name,time);clip.append(thumb,meta);
+      clip.addEventListener("click",()=>{state.selected=index;refresh();});
+      track.append(clip);
+    });
+  }
+  function inspector(){
+    const scene=current(),a=scene&&asset(scene.media_id),active=!!(a&&scene);
+    $("inspectorEmpty").hidden=active;$("inspectorForm").hidden=!active;
+    $("inspectorBadge").textContent=active?"SCENE "+(state.selected+1):"EMPTY";
+    if(!active)return;
+    $("clipName").textContent=a.name;
+    $("clipDuration").value=scene.duration;
+    $("clipDuration").max=a.kind==="video"?Math.min(90,Math.max(.5,(a.duration-scene.trim_start)/scene.speed)):90;
+    $("clipEffect").value=scene.effect;
+    $("clipCaption").value=scene.caption;
+    $("footageOptions").hidden=a.kind!=="video";
+    if(a.kind==="video"){$("trimStart").value=scene.trim_start;$("trimStart").max=a.duration;$("clipSpeed").value=String(scene.speed);}
+    $("moveLeft").disabled=state.selected===0;
+    $("moveRight").disabled=state.selected===state.scenes.length-1;
+    $("duplicateClip").disabled=state.scenes.length>=40;
+  }
+  function renderAssets(){
+    const list=$("assetList");list.replaceChildren();
+    $("assetCount").textContent=state.assets.length+" files";
+    state.assets.forEach(a=>{
+      const chip=document.createElement("div");chip.className="chip";
+      const dot=document.createElement("span");dot.className="indicator";dot.textContent=a.kind==="image"?"◉":a.kind==="video"?"▣":"♫";
+      const label=document.createElement("span");label.textContent=a.name;label.title=a.name;
+      chip.append(dot,label);list.append(chip);
+    });
+  }
+  function refresh(){
+    renderAssets();renderTimeline();preview();inspector();
+    $("exportBtn").disabled=state.rendering||!state.scenes.length;
+    $("ratioSelect").value=state.ratio;$("transitionSelect").value=state.transition;$("qualitySelect").value=state.quality;
+  }
+  async function createPlan(){
+    if(!state.scenes.length){toast("Upload some images or video clips first.");return;}
+    const button=$("planBtn");busy(button,true,"✦ Planning scenes...");
+    try{
+      const ids=state.scenes.map(s=>s.media_id);
+      const response=await api("/api/plan",{method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({media_ids:ids,instructions:$("promptInput").value,ratio:state.ratio,
+          duration:Number($("durationRange").value),captions:$("captionsToggle").checked,use_ai:$("aiToggle").checked})});
+      const returned=response.plan.scenes;
+      state.scenes=returned.map((s,i)=>({...s,trim_start:state.scenes[i]?.trim_start||0,speed:state.scenes[i]?.speed||1}));
+      // Adapt generated clip duration to any prior trim or speed adjustments.
+      state.scenes.forEach(s=>{const a=asset(s.media_id);if(a?.kind==="video")s.duration=Math.max(.5,Math.min(s.duration,(a.duration-s.trim_start)/s.speed));});
+      state.transition=response.plan.transition;
+      state.selected=0;refresh();
+      toast(response.mode==="gemini"?"Gemini created an editable scene plan.":"Created editable scene plan with offline rules."+
+        ($("aiToggle").checked?" (Gemini unavailable or not configured.)":""));
+    }catch(err){toast(err.message);}
+    finally{busy(button,false);}
+  }
+  function mutate(update){const s=current();if(!s)return;update(s);refresh();}
+  $("clipDuration").addEventListener("change",()=>mutate(s=>{
+    const a=asset(s.media_id);const max=a.kind==="video"?(a.duration-s.trim_start)/s.speed:90;
+    s.duration=Math.round(Math.min(Math.max(.5,Number($("clipDuration").value)||s.duration),Math.min(90,max))*10)/10;
+  }));
+  $("clipEffect").addEventListener("change",()=>mutate(s=>s.effect=$("clipEffect").value));
+  $("clipCaption").addEventListener("change",()=>mutate(s=>s.caption=$("clipCaption").value.slice(0,140)));
+  $("trimStart").addEventListener("change",()=>mutate(s=>{
+    const a=asset(s.media_id);s.trim_start=Math.max(0,Math.min(a.duration-.5*s.speed,Number($("trimStart").value)||0));
+    s.duration=Math.max(.5,Math.min(s.duration,(a.duration-s.trim_start)/s.speed));
+  }));
+  $("clipSpeed").addEventListener("change",()=>mutate(s=>{
+    s.speed=Number($("clipSpeed").value);const a=asset(s.media_id);
+    s.duration=Math.max(.5,Math.min(s.duration,(a.duration-s.trim_start)/s.speed));
+  }));
+  function swap(direction){const i=state.selected,j=i+direction;if(i<0||j<0||j>=state.scenes.length)return;
+    [state.scenes[i],state.scenes[j]]=[state.scenes[j],state.scenes[i]];state.selected=j;refresh();}
+  $("moveLeft").onclick=()=>swap(-1);$("moveRight").onclick=()=>swap(1);
+  $("duplicateClip").onclick=()=>{if(!current()||state.scenes.length>=40)return;state.scenes.splice(state.selected+1,0,{...current()});state.selected++;refresh();};
+  $("removeClip").onclick=()=>{if(state.selected<0)return;state.scenes.splice(state.selected,1);state.selected=state.scenes.length?Math.min(state.selected,state.scenes.length-1):-1;refresh();};
+  $("ratioSelect").onchange=e=>{state.ratio=e.target.value;refresh();};
+  $("transitionSelect").onchange=e=>{state.transition=e.target.value;};
+  $("qualitySelect").onchange=e=>{state.quality=e.target.value;};
+  $("durationRange").oninput=e=>{$("durationValue").textContent=e.target.value+"s";};
+  $("mediaInput").onchange=e=>{addMedia(e.target.files);e.target.value="";};
+  $("dropzone").onclick=()=>$("mediaInput").click();
+  $("dropzone").onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();$("mediaInput").click();}};
+  $("dropzone").ondragover=e=>{e.preventDefault();$("dropzone").classList.add("drag");};
+  $("dropzone").ondragleave=()=>$("dropzone").classList.remove("drag");
+  $("dropzone").ondrop=e=>{e.preventDefault();$("dropzone").classList.remove("drag");addMedia(e.dataTransfer.files);};
+  $("planBtn").onclick=createPlan;
+  for(const type of ["music","voice"]){
+    $(type+"Btn").onclick=()=>$(type+"Input").click();
+    $(type+"Input").onchange=async e=>{
+      const file=e.target.files?.[0];if(!file)return;
+      const button=$(type+"Btn");busy(button,true,"...");
+      try{const a=await uploadFile(file);state[type]={...a,localUrl:URL.createObjectURL(file)};state.assets.push(state[type]);
+        $(type+"Filename").textContent=file.name;refresh();toast(type==="music"?"Music track ready.":"Voice track ready.");}
+      catch(err){toast(err.message);}finally{busy(button,false);e.target.value="";}
+    };
+  }
+  const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+  async function exportVideo(){
+    if(!state.scenes.length||state.rendering)return;
+    state.rendering=true;$("result").classList.remove("show");$("progressWrap").classList.add("show");
+    const button=$("exportBtn");button.disabled=true;button.textContent="Rendering your video...";
+    try{
+      const request={plan:{ratio:state.ratio,quality:state.quality,transition:state.transition,scenes:state.scenes},
+        music_id:state.music?.id||null,voice_id:state.voice?.id||null};
+      const job=await api("/api/render",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(request)});
+      let progress;
+      for(let attempts=0;attempts<1200;attempts++){
+        progress=await api("/api/jobs/"+job.job_id);
+        const p=progress.progress||0;
+        $("progressFill").style.width=p+"%";$("progressPct").textContent=p+"%";$("progressText").textContent=progress.message||"Rendering";
+        if(progress.state==="failed")throw Error(progress.message||"Render failed");
+        if(progress.state==="done")break;
+        await sleep(1500);
+      }
+      if(progress?.state!=="done")throw Error("Export check timed out. The server may still be processing it.");
+      $("resultVideo").src=progress.url;$("downloadLink").href=progress.url;
+      $("result").classList.add("show");toast("Your MP4 is ready! Tap download to save it.");
+    }catch(err){toast("Export error: "+err.message);}
+    finally{state.rendering=false;button.textContent="↗ Export video MP4";refresh();}
+  }
+  $("exportBtn").onclick=exportVideo;
+
+  function illustratedFile(index){
+    const canvas=document.createElement("canvas");canvas.width=540;canvas.height=720;const c=canvas.getContext("2d");
+    const palettes=[["#f2bd93","#fce5bf","#809c79","#496b57"],["#b2c9de","#e9c9a3","#9dbb93","#4b7663"],["#dfbdcf","#e3d09f","#94a782","#536c62"]];
+    const p=palettes[index],grad=c.createLinearGradient(0,0,0,720);grad.addColorStop(0,p[0]);grad.addColorStop(.58,p[1]);grad.addColorStop(1,p[2]);c.fillStyle=grad;c.fillRect(0,0,540,720);
+    c.fillStyle="#fff8e0";c.beginPath();c.arc(385-index*120,170+index*9,50,0,Math.PI*2);c.fill();
+    function hill(y,color,phase){c.fillStyle=color;c.beginPath();c.moveTo(0,720);c.lineTo(0,y);
+      for(let x=0;x<=540;x+=6)c.lineTo(x,y+31*Math.sin((x+phase)/100)+12*Math.sin(x/37));c.lineTo(540,720);c.closePath();c.fill();}
+    hill(410,p[2],index*56);hill(520,p[3],index*44);
+    c.fillStyle="#394d49";for(let i=0;i<9;i++){const x=(i*113+index*31)%610-35;const y=490+(i%4)*52;c.fillRect(x,y-95,8,119);
+      c.beginPath();c.ellipse(x+4,y-94,32,50,.17,0,Math.PI*2);c.fill();}
+    c.fillStyle="#c39365";c.fillRect(195,465,150,125);c.fillStyle="#82554b";c.beginPath();c.moveTo(173,470);c.lineTo(270,390);c.lineTo(370,470);c.closePath();c.fill();
+    c.fillStyle="#f4d9aa";c.fillRect(223,494,40,40);c.fillRect(288,494,34,40);c.fillStyle="#624f41";c.fillRect(260,534,31,56);
+    c.fillStyle="#d3bf93";c.beginPath();c.moveTo(0,720);c.lineTo(250,590);c.lineTo(305,590);c.lineTo(540,720);c.closePath();c.fill();
+    return new Promise(resolve=>canvas.toBlob(blob=>resolve(new File([blob],"village-scene-"+(index+1)+".png",{type:"image/png"})),"image/png"));
+  }
+  $("demoBtn").onclick=async()=>{const button=$("demoBtn");busy(button,true,"Creating sample...");
+    try{const sample=await Promise.all([0,1,2].map(illustratedFile));await addMedia(sample);}
+    finally{busy(button,false);}
+  };
+  async function checkHealth(){
+    try{const info=await api("/api/health");
+      $("engineStatus").textContent=info.ffmpeg?"Render engine online":"FFmpeg missing on server";
+      $("engineDot").style.background=info.ffmpeg?"#baf4cc":"#f4b183";
+      $("aiToggle").title=info.gemini_configured?"Gemini API key configured":"No Gemini key configured; offline planner will be used";
+    }catch{$("engineStatus").textContent="Server unavailable";$("engineDot").style.background="#f4b183";}
+  }
+  refresh();checkHealth();
+})();
+</script>
+</body>
+</html>
