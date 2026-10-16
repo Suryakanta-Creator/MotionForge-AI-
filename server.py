@@ -5,7 +5,9 @@ Requires Python 3.10+, FFmpeg and ffprobe installed. No API key needed.
 """
 from __future__ import annotations
 
+import base64
 import json
+import secrets
 import math
 import os
 import re
@@ -16,8 +18,8 @@ import uuid
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, File, HTTPException, UploadFile, Request
+from fastapi.responses import FileResponse, PlainTextResponse
 from pydantic import BaseModel, Field
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 
@@ -34,13 +36,47 @@ VIDEO_TYPES = {".mp4", ".mov", ".webm", ".m4v", ".mkv"}
 AUDIO_TYPES = {".mp3", ".wav", ".m4a", ".aac", ".ogg"}
 EFFECTS = ("zoom_in", "zoom_out", "pan_left", "pan_right", "pan_up", "pan_down", "still")
 SIZES = {"9:16": (720, 1280), "16:9": (1280, 720), "1:1": (720, 720)}
-MAX_UPLOAD = 100 * 1024 * 1024
+FREE_MODE = os.getenv("MOTIONFORGE_FREE_MODE") == "1"
+MAX_UPLOAD = (20 if FREE_MODE else 100) * 1024 * 1024
+MAX_SCENES = 12 if FREE_MODE else 40
+MAX_RENDER_SECONDS = 120 if FREE_MODE else 600
 assets: dict[str, dict] = {}
 jobs: dict[str, dict] = {}
 mutex = threading.Lock()
-pool = ThreadPoolExecutor(max_workers=2)
+pool = ThreadPoolExecutor(max_workers=1 if FREE_MODE else 2)
 voice_pool = ThreadPoolExecutor(max_workers=1)  # Heavy TTS jobs run sequentially.
-app = FastAPI(title="MotionForge AI", version="0.3.0")
+app = FastAPI(title="MotionForge AI", version="0.3.1")
+
+
+@app.middleware("http")
+async def protect_studio(request: Request, call_next):
+    if request.url.path == "/api/health":
+        return await call_next(request)
+    required = os.getenv("MOTIONFORGE_REQUIRE_AUTH") == "1"
+    expected = os.getenv("MOTIONFORGE_PASSWORD", "")
+    if not required and not expected:
+        return await call_next(request)
+    if not expected:
+        return PlainTextResponse("Server configuration requires an access password.", status_code=503)
+    authorization = request.headers.get("authorization", "")
+    try:
+        scheme, token = authorization.split(" ", 1)
+        if scheme.lower() != "basic":
+            raise ValueError("Not basic auth")
+        decoded = base64.b64decode(token, validate=True).decode("utf-8")
+        username, password = decoded.split(":", 1)
+        ok = (secrets.compare_digest(username, "studio") and
+              secrets.compare_digest(password, expected))
+    except (ValueError, UnicodeDecodeError):
+        ok = False
+    if not ok:
+        return PlainTextResponse(
+            "Sign in to your private MotionForge studio.",
+            status_code=401,
+            headers={"WWW-Authenticate": 'Basic realm="MotionForge Studio"'},
+        )
+    return await call_next(request)
+
 
 
 class PlanRequest(BaseModel):
@@ -73,6 +109,9 @@ class ReviseRequest(BaseModel):
 
 
 def run(args: list[str]) -> None:
+    if FREE_MODE and args and args[0] == "ffmpeg":
+        args = [args[0], "-threads", "1", "-filter_threads", "1",
+                "-filter_complex_threads", "1", *args[1:]]
     result = subprocess.run(args, capture_output=True, text=True, timeout=1800)
     if result.returncode:
         raise RuntimeError((result.stderr or "FFmpeg error")[-950:])
@@ -111,7 +150,9 @@ def index():
 @app.get("/api/health")
 def health():
     return {"ok": True, "ffmpeg": bool(shutil.which("ffmpeg") and shutil.which("ffprobe")),
-            "gemini_configured": bool(os.getenv("GEMINI_API_KEY")), "version": "0.3.0"}
+            "gemini_configured": bool(os.getenv("GEMINI_API_KEY")),
+            "free_mode": FREE_MODE, "max_scenes": MAX_SCENES,
+            "max_upload_mb": MAX_UPLOAD // (1024 * 1024), "version": "0.3.1"}
 
 
 @app.post("/api/upload")
@@ -133,13 +174,13 @@ async def upload(file: UploadFile = File(...)):
             while chunk := await file.read(1024 * 1024):
                 size += len(chunk)
                 if size > MAX_UPLOAD:
-                    raise HTTPException(413, "100 MB maximum per file")
+                    raise HTTPException(413, f"{MAX_UPLOAD // (1024 * 1024)} MB maximum per file")
                 output.write(chunk)
         if not size:
             raise ValueError("File is empty")
         if kind == "image":
             with Image.open(path) as im:
-                if im.width * im.height > 80_000_000:
+                if im.width * im.height > (12_000_000 if FREE_MODE else 80_000_000):
                     raise ValueError("Image is too large")
                 im.verify()
             duration = 0
@@ -286,6 +327,8 @@ def ai_scenes(prompt: str, selected: list[dict], seconds: float, captions: bool)
 def make_plan(request: PlanRequest):
     if request.ratio not in SIZES:
         raise HTTPException(400, "Invalid canvas ratio")
+    if len(request.media_ids) > MAX_SCENES:
+        raise HTTPException(400, f"Maximum {MAX_SCENES} scenes on this server")
     selected = [asset_by_id(i) for i in request.media_ids]
     if any(a["kind"] == "audio" for a in selected):
         raise HTTPException(400, "Add audio to the music or voice track")
@@ -318,8 +361,8 @@ def validate_plan(plan: dict, selection: dict[str, dict]) -> dict:
     if plan.get("quality") not in ("draft", "hd"):
         raise ValueError("Quality must be draft or hd")
     raw_scenes = plan.get("scenes")
-    if not isinstance(raw_scenes, list) or not 1 <= len(raw_scenes) <= 40:
-        raise ValueError("Include between 1 and 40 scenes")
+    if not isinstance(raw_scenes, list) or not 1 <= len(raw_scenes) <= MAX_SCENES:
+        raise ValueError(f"Include between 1 and {MAX_SCENES} scenes")
     result = []
     total = 0.0
     for number, scene in enumerate(raw_scenes, 1):
@@ -347,8 +390,10 @@ def validate_plan(plan: dict, selection: dict[str, dict]) -> dict:
         result.append({"media_id": asset["id"], "duration": duration, "trim_start": trim_start,
                        "speed": speed, "effect": effect, "caption": caption})
         total += duration
-    if total > 600:
-        raise ValueError("10 minute maximum for one render")
+    if total > MAX_RENDER_SECONDS:
+        raise ValueError(f"{MAX_RENDER_SECONDS} second maximum for one render")
+    if FREE_MODE and plan["quality"] == "hd":
+        raise ValueError("HD export is disabled on free hosting; select Draft.")
     return {"ratio": plan["ratio"], "quality": plan["quality"],
             "transition": plan["transition"], "scenes": result}
 
@@ -655,7 +700,7 @@ def start_render(request: RenderRequest):
     if not shutil.which("ffmpeg") or not shutil.which("ffprobe"):
         raise HTTPException(503, "FFmpeg or ffprobe is not installed")
     raw_scenes = request.plan.get("scenes", []) if isinstance(request.plan, dict) else []
-    if not isinstance(raw_scenes, list) or len(raw_scenes) > 40:
+    if not isinstance(raw_scenes, list) or len(raw_scenes) > MAX_SCENES:
         raise HTTPException(400, "Invalid scene list")
     if not all(isinstance(s, dict) and isinstance(s.get("media_id"), str) for s in raw_scenes):
         raise HTTPException(400, "Each scene must reference an uploaded media ID")
