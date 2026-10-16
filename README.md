@@ -54,6 +54,7 @@ This repo includes a `Dockerfile` for any container host with persistent storage
 
 - Intended for local/private trusted use in its current MVP form.
 - Uploaded files and exports are saved to `MOTIONFORGE_DATA` (default `./user_data`) and not automatically deleted. Do not upload sensitive media to shared instances.
+- Source footage audio is currently muted in the finished movie; upload a music or narration track if needed.
 - No login, persistent asset registry, cloud storage, shared collaborative editing, billing, voice synthesis, automatic subtitles, or autonomous asset generation yet.
 - Jobs and upload references are kept in server memory; a restart clears the active session.
 - 100 MB per upload, 40-scene projects, 10-minute render limit. Rendering takes longer for large scenes or high resolution.
