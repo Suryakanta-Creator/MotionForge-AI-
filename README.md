@@ -15,6 +15,58 @@ A lightweight, prompt-directed video editor built with **FastAPI + FFmpeg + vani
 
 **Important:** This is an editor, *not* a text-to-video diffusion model. It needs uploaded media (or the built-in generated illustration demo). It does not animate characters or generate images. Optional Chatterbox speech synthesis is available with a separate local install.
 
+## NEW: Autonomous Motion Studio (v0.4)
+
+Go to **/motion** (or choose **✦ Motion Agent** from the editor). This is a
+separate text-to-motion-graphics flow: **topic → public research → storyboard →
+animated shapes and kinetic typography → FFmpeg MP4 → download**.
+
+No media uploads or paid AI API key are needed. Each scene is rendered locally
+using Pillow drawing primitives, editable Python templates, and FFmpeg. Choose
+an aspect ratio (9:16 / 16:9 / 1:1), four design palettes, duration, optional
+public research, and optional original synthesized ambient audio. Animated
+titles, progress lines, content cards and step sequences are generated for every
+video. The results are downloadable through the existing \`/api/export/{job_id}\`
+endpoint, and the studio displays research sources and the status of the render.
+
+**Research boundaries:** MotionForge currently searches *English Wikipedia*
+using its public API. It does not browse arbitrary websites, check current
+news, make assets from web images, or independently verify claims. When the
+source is unavailable, the video uses creative phrases based only on your
+topic, rather than inventing facts. Review and attribute sources before
+publishing; Wikipedia content carries reuse/license obligations. URLs in the
+source panel identify the articles used.
+
+**Template learning vs. model training:** This release implements reusable
+animation patterns. It does **not** fine-tune model weights or analyze uploaded
+reference videos into a new motion model. The next phase can add reference
+motion analysis, editable keyframes, source scoring, and opt-in feedback data.
+
+**Free hosting:** The v0.4 motion API limits free Render instances to 45-second
+draft videos (360×640 for vertical) at 12 FPS, and two queued/active motion
+jobs. Local/stronger servers allow videos up to five minutes, rendered at
+18 FPS and up to 720×1280. Longer videos and richer motion require stronger
+compute. A short video might still fail on constrained free hosting. The
+existing editor's scene/time limitations are unchanged.
+
+**API:**
+- \`GET /api/motion/presets\` — render limits, ratio and color style options
+- \`POST /api/motion/create\` — accepts a JSON object with \`topic\`, \`duration\`,
+  \`ratio\`, \`style\`, \`research\` and \`ambient_audio\`
+- \`GET /api/jobs/{job_id}\` — research/render progress plus source and storyboard
+  metadata; on success contains the MP4 \`url\`
+- \`GET /api/export/{job_id}\` — download the completed MP4
+
+To run checks locally:
+
+\`\`\`bash
+MOTIONFORGE_SMOKE_RENDER=1 python -m unittest discover -s tests -p "test_motion_graphics.py" -v
+\`\`\`
+
+**Deployment note:** \`render.yaml\` currently sets \`autoDeployTrigger: off\`.
+Pushing to GitHub does **not** update the deployed Render service automatically;
+redeploy the latest commit manually from Render's dashboard.
+
 ## Deploy free on Render (personal test deployment)
 
 [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/Suryakanta-Creator/MotionForge-AI-)
