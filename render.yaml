@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: motionforge-ai-studio
+    runtime: docker
+    plan: free
+    region: singapore
+    repo: https://github.com/Suryakanta-Creator/MotionForge-AI-
+    branch: main
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    autoDeployTrigger: off
+    healthCheckPath: /api/health
+    envVars:
+      - key: PORT
+        value: "7860"
+      - key: MOTIONFORGE_FREE_MODE
+        value: "1"
+      - key: MOTIONFORGE_REQUIRE_AUTH
+        value: "1"
+      - key: MOTIONFORGE_PASSWORD
+        sync: false
