@@ -6,6 +6,7 @@ Requires Python 3.10+, FFmpeg and ffprobe installed. No API key needed.
 from __future__ import annotations
 
 import base64
+import binascii
 import json
 import secrets
 import math
@@ -67,7 +68,7 @@ async def protect_studio(request: Request, call_next):
         username, password = decoded.split(":", 1)
         ok = (secrets.compare_digest(username, "studio") and
               secrets.compare_digest(password, expected))
-    except (ValueError, UnicodeDecodeError):
+    except (ValueError, UnicodeDecodeError, binascii.Error):
         ok = False
     if not ok:
         return PlainTextResponse(
