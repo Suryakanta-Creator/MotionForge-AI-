@@ -26,7 +26,8 @@ def test_home_and_health():
     assert "MotionForge AI" in response.text
     health = client.get("/api/health")
     assert health.status_code == 200
-    assert health.json()["version"] == "0.3.1"
+    assert health.json()["version"] == "0.4.0"
+    assert health.json()["version"] == "0.4.0"
 
 
 def test_bad_media_rejected():
