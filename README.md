@@ -15,6 +15,22 @@ A lightweight, prompt-directed video editor built with **FastAPI + FFmpeg + vani
 
 **Important:** This is an editor, *not* a text-to-video diffusion model. It needs uploaded media (or the built-in generated illustration demo). It does not animate characters or generate images. Optional Chatterbox speech synthesis is available with a separate local install.
 
+## Deploy free on Render (personal test deployment)
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/Suryakanta-Creator/MotionForge-AI-)
+
+1. Open the **Deploy to Render** link, sign in, and review the imported `render.yaml`.
+2. Confirm the service is on the **Free** plan, and enter a strong, unique `MOTIONFORGE_PASSWORD` when Render prompts. **Do not commit the password to GitHub or share it here.**
+3. Approve deployment in Render and wait until the service status is **Live**.
+4. Open the `.onrender.com` address from the service dashboard. Sign in with username **studio** and the password you set.
+5. Select **Try sample project**, **Export video MP4**, and immediately download the output.
+
+**Free-host tradeoffs:** The Render free instance provides limited CPU and 512 MB RAM. This deployment deliberately caps projects to **12 scenes**, **20 MB per uploaded file**, **120 seconds of total scene time**, and **draft-quality video** (normally 360×640 for Shorts), with only one render worker. Even short jobs may be slow; failures due to memory/time limits are possible. Render may shut down the server after 15 idle minutes; a restart/redeploy deletes media and generated exports because the local disk is ephemeral. Re-upload when that happens, and always download your finished video. Do not depend on this deployment to store your projects.
+
+The public URL is **not private by obscurity**: the application requires HTTP Basic authentication using the studio password you choose. Use a strong, unique password, do not share the link and password publicly, and treat this MVP as a personal test studio, not a secure multi-user service. There is no separate account system, encryption-at-rest, quota per user, abuse protection, or persistent database.
+
+If Render prompts for a paid compute plan, stop and select Free: this Blueprint is intended for zero-cost testing.
+
 ## Run locally
 
 Install Python 3.10+ and FFmpeg (both `ffmpeg` and `ffprobe` in PATH).
@@ -80,7 +96,7 @@ This repo includes a `Dockerfile` for any container host with persistent storage
 - Source footage audio is currently muted in the finished movie; upload a music or narration track if needed.
 - No login, persistent asset registry, cloud storage, shared collaborative editing, billing, automatic subtitles, or autonomous asset generation yet. Optional local voice synthesis requires a separate install.
 - Jobs and upload references are kept in server memory; a restart clears the active session.
-- 100 MB per upload, 40-scene projects, 10-minute render limit. Rendering takes longer for large scenes or high resolution.
+- Local default: 100 MB per upload, 40-scene projects, 10-minute render limit. Free hosting limits are lower, as described above. Rendering takes longer for large scenes or high resolution.
 - Use only media and music you have rights to use.
 
 ## Architecture
