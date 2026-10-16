@@ -1,0 +1,95 @@
+name: Generate 5-minute motion graphics
+run-name: "MotionForge video: ${{ inputs.aspect }} · ${{ inputs.theme }}"
+
+on:
+  workflow_dispatch:
+    inputs:
+      prompt:
+        description: "One complete prompt describing your 5-minute video"
+        type: string
+        required: true
+        default: "Create a five-minute motion graphics explainer about how AI agents work: concepts, workflows, tools, and examples, using kinetic typography, scrolling dashboards and clean animated cards."
+      aspect:
+        description: "Canvas format"
+        type: choice
+        options:
+          - "16:9"
+          - "9:16"
+          - "1:1"
+        default: "16:9"
+        required: true
+      theme:
+        description: "Motion graphic design palette"
+        type: choice
+        options:
+          - midnight
+          - ocean
+          - ember
+          - berry
+          - paper
+        default: midnight
+        required: true
+      use_gemini:
+        description: "Use Gemini for topic-specific scene writing (requires GEMINI_API_KEY Actions secret)"
+        type: boolean
+        default: false
+        required: true
+      ambience:
+        description: "Include a gentle, original synthesized sound bed"
+        type: boolean
+        default: true
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  make-video:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      VIDEO_PROMPT: ${{ inputs.prompt }}
+      VIDEO_RATIO: ${{ inputs.aspect }}
+      VIDEO_THEME: ${{ inputs.theme }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      VIDEO_GEMINI: ${{ inputs.use_gemini }}
+      VIDEO_AMBIENCE: ${{ inputs.ambience }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Prepare free Linux renderer
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg fonts-noto-core
+          python -m pip install --upgrade pip
+          pip install Pillow "google-genai>=1.0,<3"
+      - name: Make entire 5-minute MP4 from one prompt
+        shell: bash
+        run: |
+          CMD=(python autonomous.py --prompt "$VIDEO_PROMPT" --duration 300 --ratio "$VIDEO_RATIO" --theme "$VIDEO_THEME" --quality standard --output motionforge-5-minute.mp4)
+          if [[ "$VIDEO_GEMINI" == "true" ]]; then CMD+=(--use-ai); fi
+          if [[ "$VIDEO_AMBIENCE" == "true" ]]; then CMD+=(--ambience); fi
+          "${CMD[@]}"
+      - name: Validate output duration and codec
+        run: |
+          ffprobe -v error -select_streams v:0 -show_entries stream=codec_name,width,height -of default=nw=1 motionforge-5-minute.mp4
+          python - <<'PY'
+          import json, subprocess
+          video = "motionforge-5-minute.mp4"
+          result = subprocess.check_output(["ffprobe","-v","error","-show_entries","format=duration",
+              "-of","json",video],text=True)
+          duration = float(json.loads(result)["format"]["duration"])
+          assert abs(duration - 300) < 0.6, f"Expected 5 minutes, got {duration:.2f} sec"
+          print(f"Verified complete {duration:.1f}-second video")
+          PY
+      - name: Upload MP4 and storyboard
+        uses: actions/upload-artifact@v4
+        with:
+          name: motionforge-five-minute-video
+          path: |
+            motionforge-5-minute.mp4
+            motionforge-5-minute.storyboard.json
+          if-no-files-found: error
+          retention-days: 5
