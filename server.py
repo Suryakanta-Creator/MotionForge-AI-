@@ -21,6 +21,8 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 
+from voice_cloning import LANGUAGES, clone_voice, voice_status
+
 ROOT = Path(__file__).resolve().parent
 DATA = Path(os.getenv("MOTIONFORGE_DATA", str(ROOT / "user_data"))).resolve()
 UPLOADS, EXPORTS, WORK = [DATA / part for part in ("uploads", "exports", "jobs")]
@@ -37,6 +39,7 @@ assets: dict[str, dict] = {}
 jobs: dict[str, dict] = {}
 mutex = threading.Lock()
 pool = ThreadPoolExecutor(max_workers=2)
+voice_pool = ThreadPoolExecutor(max_workers=1)  # Heavy TTS jobs run sequentially.
 app = FastAPI(title="MotionForge AI", version="0.3.0")
 
 
@@ -54,6 +57,13 @@ class RenderRequest(BaseModel):
     music_id: str | None = None
     voice_id: str | None = None
 
+
+
+class VoiceGenerateRequest(BaseModel):
+    reference_id: str = Field(min_length=1, max_length=64)
+    text: str = Field(min_length=1, max_length=9000)
+    language: str = "hi"
+    consent: bool = False
 
 
 class ReviseRequest(BaseModel):
@@ -157,6 +167,73 @@ async def upload(file: UploadFile = File(...)):
 def media(media_id: str):
     info = asset_by_id(media_id)
     return FileResponse(info["path"], filename=info["name"], content_disposition_type="inline")
+
+
+@app.get("/api/voice/status")
+def voice_engine_status():
+    return voice_status()
+
+
+def voice_job(job_id: str, request: VoiceGenerateRequest, reference: dict):
+    """Generate one audio asset without blocking the video rendering queue."""
+    voice_id = uuid.uuid4().hex
+    destination = UPLOADS / f"{voice_id}.wav"
+    temporary = WORK / f"voice_{job_id}"
+
+    def status(progress: int, message: str):
+        with mutex:
+            jobs[job_id].update(progress=progress, message=message)
+
+    try:
+        clone_voice(
+            Path(reference["path"]), request.text.strip(), request.language,
+            destination, temporary, status,
+        )
+        seconds = probe(destination)
+        record = {"id": voice_id, "kind": "audio", "name": "AI narration.wav",
+                  "duration": round(seconds, 3), "url": f"/api/media/{voice_id}"}
+        with mutex:
+            assets[voice_id] = {**record, "path": str(destination)}
+            jobs[job_id].update(
+                state="done", progress=100, message="Narration ready",
+                asset=record, url=record["url"],
+            )
+    except Exception as exc:
+        destination.unlink(missing_ok=True)
+        with mutex:
+            jobs[job_id].update(state="failed", message=str(exc)[-500:])
+    finally:
+        shutil.rmtree(temporary, ignore_errors=True)
+
+
+@app.post("/api/voice/generate")
+def generate_voice(request: VoiceGenerateRequest):
+    if not request.consent:
+        raise HTTPException(400, "Confirm you own this voice or have the speaker's permission.")
+    if request.language not in LANGUAGES:
+        raise HTTPException(400, "Language not supported by Chatterbox. Odia is not supported.")
+    if not request.text.strip():
+        raise HTTPException(400, "Enter a narration script.")
+    if not shutil.which("ffmpeg") or not shutil.which("ffprobe"):
+        raise HTTPException(503, "FFmpeg and ffprobe must be installed.")
+    if not voice_status()["available"]:
+        raise HTTPException(503, "Voice model not installed. Run: pip install -r requirements-voice.txt")
+    reference = asset_by_id(request.reference_id)
+    if reference["kind"] != "audio":
+        raise HTTPException(400, "The voice reference must be an audio upload.")
+    if not 3 <= reference["duration"] <= 30:
+        raise HTTPException(400, "Use a clean voice reference lasting 3–30 seconds.")
+    with mutex:
+        pending = sum(1 for j in jobs.values()
+                      if j.get("kind") == "voice" and j["state"] in ("queued", "processing"))
+        if pending >= 3:
+            raise HTTPException(429, "Voice queue is full. Try again after a job finishes.")
+        job_id = uuid.uuid4().hex
+        jobs[job_id] = {"id": job_id, "kind": "voice", "state": "queued",
+                        "progress": 0, "message": "Waiting for voice engine"}
+    voice_pool.submit(voice_job, job_id, request, reference)
+    return {"job_id": job_id}
+
 
 
 def rule_effects(prompt: str) -> list[str]:
