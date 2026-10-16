@@ -165,7 +165,13 @@
     @media(max-width:1180px){.workspace{grid-template-columns:minmax(250px,300px) minmax(310px,1fr)}.inspector{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;align-items:start}.inspector>.panel-head{grid-column:1/-1}.inspector>.section{border-top:1px solid #292e3f}}
     @media(max-width:740px){.top{padding:12px 16px;min-height:66px}.top-center,.ghost-link{display:none}.shell{padding:22px 14px 35px}.title-row{margin-bottom:19px}.workflow{display:none}.workspace{display:flex;flex-direction:column}.workspace>*{width:100%}.viewer{order:-1}.preview-shell{min-height:380px}.stage{height:350px}.inspector{display:block}.title-row h2{font-size:29px}.footer-note{line-height:1.65}.section{padding:15px}.viewer{padding:13px}}
     @media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;animation-duration:.01ms!important;transition-duration:.01ms!important}}
-  </style>
+    .voice-lab{border:1px solid #514b75;border-radius:13px;padding:14px;margin-top:12px;background:linear-gradient(135deg,#23213b,#191e30)}
+  .voice-lab textarea{min-height:96px}
+  .voice-lab input[type=file]{display:block;width:100%;max-width:100%;font-size:11px;color:#aeb8d2}
+  .voice-lab audio{display:block;width:100%;margin-top:10px}
+  .voice-lab .tip{line-height:1.55}
+  .voice-lab .voice-result{padding-top:10px}
+</style>
 </head>
 <body>
 <div class="app">
@@ -274,7 +280,28 @@
           <div class="section-title"><span>♫ Audio tracks</span></div>
           <div class="audio-row"><div><strong>Background music</strong><small id="musicFilename">No audio selected</small></div><button class="small-control" id="musicBtn">+ Add</button><input type="file" id="musicInput" class="sr-only" accept="audio/*"></div>
           <div class="audio-row"><div><strong>Narration / voice</strong><small id="voiceFilename">No audio selected</small></div><button class="small-control" id="voiceBtn">+ Add</button><input type="file" id="voiceInput" class="sr-only" accept="audio/*"></div>
-          <p class="tip">Use audio you own or have permission to use. Voice audio is uploaded, not synthesized here.</p>
+          <p class="tip">Use audio you own or have permission to use. Uploaded tracks and AI-generated narration both work with MP4 export.</p>
+          <div class="voice-lab" aria-label="AI voice cloning studio">
+            <div class="section-title" style="margin-top:0"><span>✦ AI voice lab</span><span class="pill" id="voiceEngineBadge">Checking…</span></div>
+            <p class="tip">Clone your own voice (or one you have permission to use) with local Chatterbox. A clean 3–30 second reference works best.</p>
+            <label for="voiceReference" class="fieldlabel">Voice reference audio</label>
+            <input id="voiceReference" type="file" accept="audio/mpeg,audio/wav,audio/x-wav,audio/mp4,audio/ogg,audio/aac,.mp3,.wav,.m4a,.aac,.ogg">
+            <label for="voiceLanguage" class="fieldlabel">Narration language</label>
+            <select id="voiceLanguage"><option value="hi">Hindi</option><option value="en">English</option></select>
+            <label for="voiceScript" class="fieldlabel">Narration script</label>
+            <textarea id="voiceScript" maxlength="9000" rows="5" placeholder="अपनी कहानी की शुरुआत यहाँ लिखें…"></textarea>
+            <label class="custom-check" style="margin-top:10px"><input type="checkbox" id="voiceConsent"> I own this voice or have the speaker's explicit permission to clone it.</label>
+            <button id="generateVoiceBtn" class="btn primary full" style="margin-top:13px" disabled>✦ Generate cloned narration</button>
+            <p class="tip" id="voiceGenerationStatus" role="status" aria-live="polite">Checking optional voice engine…</p>
+            <div id="voiceResult" class="voice-result" hidden>
+              <audio id="voicePreview" controls preload="none" aria-label="Generated voice narration"></audio>
+              <div class="fieldrow" style="margin-top:10px">
+                <a id="voiceDownload" class="btn soft full" href="#" download="MotionForge-narration.wav">↓ Save WAV</a>
+              </div>
+              <p class="tip">Narration is automatically added to the video voice track. Replace it any time by generating again.</p>
+            </div>
+            <p class="tip">Hindi and English supported. Odia is not officially supported by Chatterbox. Local model inference may be slow without a GPU.</p>
+          </div>
         </div>
         <div class="export-head">
           <h3>Ready to make it real?</h3><p>Render a shareable MP4 with your selected scenes and soundtrack.</p>
@@ -499,6 +526,77 @@
     };
   }
   const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+
+  // Voice cloning is an optional local service. Ordinary editing remains usable
+  // when the model is not installed.
+  async function checkVoiceEngine(){
+    try{
+      const status=await api("/api/voice/status");
+      const label=$("voiceEngineBadge");
+      label.textContent=status.available?"LOCAL · READY":"NOT INSTALLED";
+      $("voiceGenerationStatus").textContent=status.available?
+        "Ready. Model weights load on the first generation.":
+        "Optional install: pip install -r requirements-voice.txt";
+      $("generateVoiceBtn").disabled=!status.available;
+      if(status.languages){
+        const select=$("voiceLanguage"),currentLanguage=select.value;
+        select.replaceChildren();
+        for(const [key,name] of Object.entries(status.languages)){
+          const option=document.createElement("option");
+          option.value=key;option.textContent=name;select.append(option);
+        }
+        select.value=currentLanguage in status.languages?currentLanguage:"hi";
+      }
+    }catch{
+      $("voiceEngineBadge").textContent="OFFLINE";
+      $("voiceGenerationStatus").textContent="Cannot connect to the local voice engine.";
+      $("generateVoiceBtn").disabled=true;
+    }
+  }
+
+  async function generateVoiceNarration(){
+    const button=$("generateVoiceBtn"),sample=$("voiceReference").files?.[0];
+    const script=$("voiceScript").value.trim(),language=$("voiceLanguage").value;
+    if(!sample){toast("Choose a clean 3–30 second voice recording.");return;}
+    if(!script){toast("Write a narration script first.");return;}
+    if(!$("voiceConsent").checked){toast("Confirm voice ownership or speaker permission.");return;}
+    busy(button,true,"Generating narration…");
+    $("voiceResult").hidden=true;
+    try{
+      $("voiceGenerationStatus").textContent="Uploading reference recording…";
+      const reference=await uploadFile(sample);
+      if(reference.kind!=="audio")throw Error("Reference must be an audio file.");
+      const started=await api("/api/voice/generate",{
+        method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({reference_id:reference.id,text:script,language,consent:true})
+      });
+      let progress;
+      for(let attempt=0;attempt<1800;attempt++){
+        progress=await api("/api/jobs/"+started.job_id);
+        $("voiceGenerationStatus").textContent=(progress.message||"Processing")+
+          " · "+(progress.progress||0)+"%";
+        if(progress.state==="failed")throw Error(progress.message||"Voice generation failed.");
+        if(progress.state==="done")break;
+        await sleep(2000);
+      }
+      if(progress?.state!=="done")throw Error("Voice generation check timed out.");
+      const generated={...progress.asset,localUrl:progress.asset.url};
+      state.assets.push(generated);
+      state.voice=generated;
+      $("voiceFilename").textContent=generated.name;
+      $("voicePreview").src=generated.url;
+      $("voiceDownload").href=generated.url;
+      $("voiceResult").hidden=false;
+      $("voiceGenerationStatus").textContent="Voice narration is ready and added to your video.";
+      refresh();
+      toast("Your AI narration has been added to the timeline.");
+    }catch(err){
+      $("voiceGenerationStatus").textContent="Voice error: "+err.message;
+      toast(err.message);
+    }finally{busy(button,false);}
+  }
+  $("generateVoiceBtn").onclick=generateVoiceNarration;
+
   async function exportVideo(){
     if(!state.scenes.length||state.rendering)return;
     state.rendering=true;$("result").classList.remove("show");$("progressWrap").classList.add("show");
@@ -550,7 +648,7 @@
       $("aiToggle").title=info.gemini_configured?"Gemini API key configured":"No Gemini key configured; offline planner will be used";
     }catch{$("engineStatus").textContent="Server unavailable";$("engineDot").style.background="#f4b183";}
   }
-  refresh();checkHealth();
+  refresh();checkHealth();checkVoiceEngine();
 })();
 </script>
 </body>
