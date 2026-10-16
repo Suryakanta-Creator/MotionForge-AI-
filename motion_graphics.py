@@ -51,18 +51,29 @@ class MotionRequest(BaseModel):
     ambient_audio: bool = True
 
 
-def _font(size: int):
+def _font(size: int, text: str = ""):
+    """Select fonts with Devanagari/Odia glyph coverage for local-language titles."""
     size = max(12, int(size))
-    if size not in _FONT_CACHE:
-        for filename in _FONT_FILES:
+    script = ("odia" if any("\u0b00" <= c <= "\u0b7f" for c in text)
+              else "devanagari" if any("\u0900" <= c <= "\u097f" for c in text)
+              else "latin")
+    key = (size, script)
+    if key not in _FONT_CACHE:
+        additional = {
+            "odia": ("/usr/share/fonts/truetype/noto/NotoSansOriya-Regular.ttf",
+                     "/usr/share/fonts/truetype/noto/NotoSansOdia-Regular.ttf"),
+            "devanagari": ("/usr/share/fonts/truetype/noto/NotoSansDevanagari-Regular.ttf",),
+            "latin": (),
+        }
+        for filename in (*additional[script], *_FONT_FILES):
             try:
-                _FONT_CACHE[size] = ImageFont.truetype(filename, size)
+                _FONT_CACHE[key] = ImageFont.truetype(filename, size)
                 break
             except OSError:
                 pass
         else:
-            _FONT_CACHE[size] = ImageFont.load_default()
-    return _FONT_CACHE[size]
+            _FONT_CACHE[key] = ImageFont.load_default()
+    return _FONT_CACHE[key]
 
 
 def _wiki_json(params: dict) -> dict:
@@ -146,6 +157,10 @@ def make_storyboard(request: MotionRequest, facts: dict) -> dict:
     scenes.append({
         "kind": "outro", "heading": "KEEP EXPLORING", "body": topic[:110], "number": count,
     })
+    if facts.get("sources"):
+        credit = "Wikipedia: " + facts["sources"][0]["title"][:32]
+        for scene in scenes:
+            scene["source_credit"] = credit
     # Whole frame counts are distributed exactly, avoiding time drift.
     duration = request.duration
     frames = int(duration * (12 if os.getenv("MOTIONFORGE_FREE_MODE") == "1" else 18))
@@ -212,7 +227,7 @@ def _ease(t: float):
 
 
 def _text_block(d, text, x, y, max_w, size, fill, line_height=1.2, max_lines=4):
-    font = _font(size)
+    font = _font(size, text)
     rows = _wrap(d, text, font, max_w, max_lines)
     step = round(size * line_height)
     for n, row in enumerate(rows):
@@ -286,6 +301,10 @@ def _draw_frame(background, scene, colors, index, total, global_pos, all_frames)
                    font=_font(int(20 * scale)), fill=_rgb(colors[0]))
             _text_block(d, parts[j], x0 + 65 * scale, top + 20 * scale,
                         w - pad * 2 - 80 * scale, int(20 * scale), white, 1.2, 2)
+    # Research attribution is burned into each exported video frame.
+    if scene.get("source_credit"):
+        d.text((pad, int(h * .877)), scene["source_credit"],
+               font=_font(int(13 * scale)), fill=muted)
     # Timeline and page counter.
     bar_y = int(h * .91)
     d.rounded_rectangle((pad, bar_y, w - pad, bar_y + max(3, int(5 * scale))),
