@@ -51,6 +51,11 @@ def test_image_to_real_mp4():
     assert body["mode"] == "offline"
     assert len(body["plan"]["scenes"]) == 2
     assert body["plan"]["scenes"][0]["effect"] == "pan_down"
+    revised = client.post("/api/revise", json={"plan": body["plan"],
+        "instructions": "zoom into scene 2, make scene 2 1 second, use clean cuts", "use_ai": False})
+    assert revised.status_code == 200, revised.text
+    assert revised.json()["plan"]["transition"] == "cut"
+    assert revised.json()["plan"]["scenes"][1]["effect"] == "zoom_in"
     invalid = client.post("/api/render", json={"plan": {**body["plan"], "ratio": "33:2"}})
     assert invalid.status_code == 400
 
