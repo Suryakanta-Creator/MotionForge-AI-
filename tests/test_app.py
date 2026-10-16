@@ -26,7 +26,7 @@ def test_home_and_health():
     assert "MotionForge AI" in response.text
     health = client.get("/api/health")
     assert health.status_code == 200
-    assert health.json()["version"] == "0.3.0"
+    assert health.json()["version"] == "0.3.1"
 
 
 def test_bad_media_rejected():
@@ -106,3 +106,16 @@ def test_footage_trim_speed_and_music(tmp_path):
     assert job["state"] == "done", job
     video = client.get(f"/api/export/{job_id}")
     assert video.status_code == 200 and len(video.content) > 1000
+
+
+def test_private_deployment_access(monkeypatch):
+    import base64
+    monkeypatch.setenv("MOTIONFORGE_REQUIRE_AUTH", "1")
+    monkeypatch.setenv("MOTIONFORGE_PASSWORD", "test-password-123")
+    assert client.get("/api/health").status_code == 200
+    assert client.get("/").status_code == 401
+    assert client.post("/api/plan", json={}).status_code == 401
+    bad = base64.b64encode(b"studio:wrong").decode()
+    assert client.get("/", headers={"Authorization": "Basic " + bad}).status_code == 401
+    good = base64.b64encode(b"studio:test-password-123").decode()
+    assert client.get("/", headers={"Authorization": "Basic " + good}).status_code == 200
