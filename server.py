@@ -128,6 +128,8 @@ async def upload(file: UploadFile = File(...)):
             duration = 0
         else:
             duration = probe(path)
+            if kind == "video" and duration < 0.5:
+                raise ValueError("Video clips must be at least 0.5 seconds long")
         info = {"id": media_id, "path": str(path), "kind": kind,
                 "duration": round(duration, 3), "name": Path(file.filename or "media").name[:120]}
         with mutex:
@@ -431,7 +433,9 @@ def start_render(request: RenderRequest):
     raw_scenes = request.plan.get("scenes", []) if isinstance(request.plan, dict) else []
     if not isinstance(raw_scenes, list) or len(raw_scenes) > 40:
         raise HTTPException(400, "Invalid scene list")
-    ids = {s.get("media_id") for s in raw_scenes if isinstance(s, dict)}
+    if not all(isinstance(s, dict) and isinstance(s.get("media_id"), str) for s in raw_scenes):
+        raise HTTPException(400, "Each scene must reference an uploaded media ID")
+    ids = {s["media_id"] for s in raw_scenes}
     ids.update(x for x in (request.music_id, request.voice_id) if x)
     selection = {item: asset_by_id(item) for item in ids}
     try:
