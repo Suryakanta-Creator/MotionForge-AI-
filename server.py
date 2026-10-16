@@ -103,6 +103,15 @@ class VoiceGenerateRequest(BaseModel):
     consent: bool = False
 
 
+
+class AutopilotRequest(BaseModel):
+    prompt: str = Field(min_length=5, max_length=2000)
+    duration: int = Field(default=300, ge=30, le=300)
+    ratio: str = "16:9"
+    theme: str = "midnight"
+    use_ai: bool = False
+    ambience: bool = True
+
 class ReviseRequest(BaseModel):
     plan: dict
     instructions: str = Field(min_length=2, max_length=2000)
@@ -694,6 +703,70 @@ def render_job(job_id: str, request: RenderRequest, selection: dict[str, dict]):
     except Exception as exc:
         with mutex:
             jobs[job_id].update(state="failed", message=str(exc)[-600:])
+
+
+
+def autopilot_job(job_id: str, request: AutopilotRequest):
+    """Run five-minute generation as an asynchronous job, not an HTTP timeout."""
+    def report(pct, message):
+        with mutex:
+            jobs[job_id]["progress"] = min(100, max(0, round(float(pct))))
+            jobs[job_id]["message"] = str(message)[:200]
+    try:
+        from autonomous import create_video
+        # Lower resolution is critical for Render Free's CPU/RAM and ephemeral disk.
+        result=create_video(
+            request.prompt, EXPORTS/f"{job_id}.mp4", duration=request.duration,
+            ratio=request.ratio, theme=request.theme,
+            quality="draft" if FREE_MODE else "standard",
+            use_ai=request.use_ai, ambience=request.ambience, progress=report,
+        )
+        with mutex:
+            jobs[job_id].update(
+                state="done", progress=100, message="Your full motion-graphics video is ready",
+                url=f"/api/export/{job_id}",
+                storyboard_url=f"/api/auto/storyboard/{job_id}",
+                scenes=result["scene_count"], planning_mode=result["planning_mode"],
+            )
+    except Exception as exc:
+        with mutex:
+            jobs[job_id].update(
+                state="failed", message=str(exc)[-650:],
+            )
+
+
+@app.post("/api/auto/start")
+def start_autopilot(request: AutopilotRequest):
+    from motion_engine import PALETTES
+    if request.ratio not in SIZES or request.theme not in PALETTES:
+        raise HTTPException(400, "Unknown canvas ratio or graphics theme")
+    if not shutil.which("ffmpeg"):
+        raise HTTPException(503, "FFmpeg is unavailable")
+    # No open-ended render queue on a tiny free server.
+    with mutex:
+        active=sum(j["state"]=="rendering" for j in jobs.values())
+        if active >= (1 if FREE_MODE else 2):
+            raise HTTPException(429, "A render is already running; wait for it to finish.")
+        job_id=uuid.uuid4().hex
+        jobs[job_id]={
+            "id":job_id, "state":"rendering", "progress":0,
+            "message":"Starting the one-prompt storyboard",
+        }
+    pool.submit(autopilot_job,job_id,request)
+    return {"job_id":job_id, "duration":request.duration,
+            "message":"Rendering started. Keep this page open and download the file when ready."}
+
+
+@app.get("/api/auto/storyboard/{job_id}")
+def auto_storyboard(job_id: str):
+    with mutex:
+        job=jobs.get(job_id)
+    if not job or job.get("state")!="done":
+        raise HTTPException(404, "Storyboard is not ready")
+    path=EXPORTS/f"{job_id}.storyboard.json"
+    if not path.exists():
+        raise HTTPException(404,"Storyboard file was lost after server restart")
+    return FileResponse(path,media_type="application/json",filename="MotionForge-storyboard.json")
 
 
 @app.post("/api/render")
