@@ -18,4 +18,4 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt pytest httpx
       - name: Test upload, plan, render and MP4 export
-        run: pytest -q tests/
+        run: PYTHONPATH=. pytest -q tests/
