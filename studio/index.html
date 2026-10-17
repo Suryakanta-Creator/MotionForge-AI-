@@ -204,7 +204,18 @@
             <div style="width:100%"><label for="autoTheme" class="fieldlabel" style="margin-top:0">Design theme</label>
               <select id="autoTheme"><option value="midnight">Midnight purple</option><option value="ocean">Ocean teal</option><option value="ember">Warm orange</option><option value="berry">Berry pink</option><option value="paper">Paper editorial</option></select></div>
           </div>
-          <label class="custom-check" style="margin-top:13px"><input id="autoAI" type="checkbox"> Let Gemini write the storyboard (needs API key)</label>
+          <label class="custom-check" style="margin-top:13px"><input id="autoAI" type="checkbox"> Use free-tier AI to write the storyboard (optional)</label>
+           <label class="fieldlabel" for="autoProvider" style="margin-top:11px">Planning model provider</label>
+           <select id="autoProvider" title="Free quotas are limited. Keys are configured only on the server.">
+             <option value="auto">Auto · configured free tiers, then anonymous</option>
+             <option value="gemini">Google Gemini · API key</option>
+             <option value="groq">Groq · API key</option>
+             <option value="openrouter">OpenRouter free models · API key</option>
+             <option value="kilo">Kilo free router · no key</option>
+             <option value="nvidia">NVIDIA NIM · API key</option>
+             <option value="ovh">OVHcloud anonymous · limited</option>
+           </select>
+           <p class="tip">Free model providers still have quotas and may store prompts. Do not send confidential information.</p>
           <label class="custom-check" style="margin-top:10px"><input id="autoAmbience" type="checkbox" checked> Add original synthesized ambient sound</label>
           <button id="autoGenerate" class="btn primary full" style="margin-top:15px">✦ Generate complete 5-minute MP4</button>
           <p class="tip">A full five-minute project contains 50 animated scenes. Free hosting uses draft resolution. Rendering may take several minutes; stay on this page and download promptly.</p>
@@ -217,6 +228,34 @@
             <a id="autoDownload" href="#" download="motionforge-5-minute.mp4" class="btn mint full">↓ Download complete 5-minute video</a>
             <a id="autoStoryboard" href="#" download="motionforge-storyboard.json" class="btn soft full" style="margin-top:7px">↓ Download editable storyboard JSON</a>
             <p class="tip">The video and storyboard are temporary on Render. Save them before the server restarts.</p>
+          </div>
+        </div>
+        <div class="section" id="veoPanel">
+          <div class="section-title"><span>✦ Gemini Veo · AI video clip</span><span class="pill">PAID GOOGLE API</span></div>
+          <p class="tip">Generates a new 4–8 second 720p MP4 with Google's Veo 3.1. This is NOT included in Gemini's free text tier. Billing is required. Use the free motion-graphics renderer above for $0 rendering.</p>
+          <label class="fieldlabel" for="veoPrompt">Describe your new video</label>
+          <textarea id="veoPrompt" maxlength="1024" style="min-height:85px" placeholder="A peaceful hand-painted village at sunrise, gentle clouds, subtle camera move, beautiful warm light."></textarea>
+          <div class="fieldrow" style="margin-top:10px">
+            <div><label class="fieldlabel" for="veoModel">Veo model</label><select id="veoModel">
+              <option value="veo-3.1-lite-generate-preview">Lite · $0.05/sec (720p)</option>
+              <option value="veo-3.1-fast-generate-preview">Fast · $0.10/sec (720p)</option>
+              <option value="veo-3.1-generate-preview">Standard · $0.40/sec (720p)</option>
+            </select></div>
+            <div><label class="fieldlabel" for="veoRatio">Aspect ratio</label><select id="veoRatio">
+              <option value="9:16">9:16 · Shorts</option><option value="16:9">16:9 · Landscape</option>
+            </select></div>
+          </div>
+          <div class="fieldrow" style="margin-top:10px">
+            <div><label class="fieldlabel" for="veoDuration">Clip duration</label><select id="veoDuration">
+              <option value="4">4 seconds</option><option value="6">6 seconds</option><option value="8" selected>8 seconds</option>
+            </select></div>
+            <div style="align-self:end"><strong id="veoEstimate" style="color:#ffdbb1">Estimated: $0.40</strong></div>
+          </div>
+          <label class="custom-check" style="margin-top:14px"><input type="checkbox" id="veoAccept"> I authorize a paid Google Veo request for this clip</label>
+          <button class="btn primary full" id="veoGenerate" style="margin-top:12px" disabled>Generate paid Veo clip</button>
+          <p id="veoStatus" class="tip">Veo unavailable until GEMINI_API_KEY and MOTIONFORGE_ENABLE_PAID_VEO=1 are configured on the server.</p>
+          <div id="veoResult" class="result"><video id="veoVideo" controls playsinline></video>
+            <a id="veoDownload" href="#" download="motionforge-veo.mp4" class="btn mint full">↓ Download Veo MP4</a>
           </div>
         </div>
         <div class="section">
@@ -664,7 +703,7 @@
     try{
       const request={
         prompt,duration:Number($("autoDuration").value),ratio:$("autoRatio").value,theme:$("autoTheme").value,
-        use_ai:$("autoAI").checked,ambience:$("autoAmbience").checked,
+        use_ai:$("autoAI").checked,ai_provider:$("autoProvider").value,ambience:$("autoAmbience").checked,
       };
       const started=await api("/api/auto/start",{
         method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(request),
@@ -694,6 +733,50 @@
     $("autoGenerate").textContent=n===300?"✦ Generate complete 5-minute MP4":"✦ Generate "+n+"-second test MP4";
   };
 
+
+  function updateVeoEstimate(){
+    const prices={"veo-3.1-lite-generate-preview":0.05,"veo-3.1-fast-generate-preview":0.10,"veo-3.1-generate-preview":0.40};
+    const cost=(prices[$("veoModel").value]*Number($("veoDuration").value)).toFixed(2);
+    $("veoEstimate").textContent="Estimated: $"+cost+" USD";
+  }
+  ["veoModel","veoDuration"].forEach(id=>$(id).addEventListener("change",updateVeoEstimate));
+  updateVeoEstimate();
+  async function initVeo(){
+    try{
+      const r=await api("/api/veo/capabilities");
+      $("veoGenerate").disabled=!r.available;
+      $("veoStatus").textContent=r.available?
+        "Veo is enabled. Each confirmed request may create charges on your Google API account.":
+        "Veo is disabled. Configure GEMINI_API_KEY and MOTIONFORGE_ENABLE_PAID_VEO=1 on the server to use paid video generation.";
+    }catch(err){$("veoStatus").textContent="Unable to check Veo configuration: "+err.message;}
+  }
+  async function generateVeo(){
+    if(!$("veoAccept").checked){toast("First confirm the paid Google video-generation request.");return;}
+    const prompt=$("veoPrompt").value.trim();
+    if(prompt.length<10){toast("Describe the clip in at least 10 characters.");return;}
+    const button=$("veoGenerate");busy(button,true,"Generating with Google Veo...");
+    $("veoResult").classList.remove("show");
+    try{
+      const body={prompt,model:$("veoModel").value,aspect_ratio:$("veoRatio").value,
+        duration:Number($("veoDuration").value),confirm_paid:$("veoAccept").checked};
+      const started=await api("/api/veo/start",{method:"POST",
+        headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+      $("veoStatus").textContent="Google Veo request submitted. Estimated cost: $"+started.estimated_usd+". Checking status...";
+      let job;
+      for(let i=0;i<400;i++){
+        job=await api("/api/jobs/"+started.job_id);
+        $("veoStatus").textContent=job.message||"Waiting for Veo";
+        if(job.state==="done"||job.state==="failed")break;
+        await sleep(3000);
+      }
+      if(job?.state!=="done")throw Error(job?.message||"Clip not ready. Check API usage.");
+      $("veoVideo").src=job.url;$("veoDownload").href=job.url;
+      $("veoResult").classList.add("show");toast("Veo clip ready to download.");
+    }catch(err){toast("Veo: "+err.message);$("veoStatus").textContent="Veo: "+err.message;}
+    finally{busy(button,false);}
+  }
+  $("veoGenerate").onclick=generateVeo;
+  initVeo();
 
   function illustratedFile(index){
     const canvas=document.createElement("canvas");canvas.width=540;canvas.height=720;const c=canvas.getContext("2d");
@@ -729,7 +812,7 @@
       }
       $("engineStatus").textContent=info.ffmpeg?"Render engine online":"FFmpeg missing on server";
       $("engineDot").style.background=info.ffmpeg?"#baf4cc":"#f4b183";
-      $("aiToggle").title=info.gemini_configured?"Gemini API key configured":"No Gemini key configured; offline planner will be used";
+      $("aiToggle").title=info.gemini_configured?"Gemini API key configured":"Offline planning still works; other providers are available.";
     }catch{$("engineStatus").textContent="Server unavailable";$("engineDot").style.background="#f4b183";}
   }
   refresh();checkHealth();checkVoiceEngine();
