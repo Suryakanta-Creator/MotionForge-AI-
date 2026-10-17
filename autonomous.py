@@ -104,47 +104,33 @@ def offline_storyboard(prompt, count, theme="midnight"):
     return scenes
 
 
-def gemini_storyboard(prompt, count, base_scenes):
-    """Gemini returns original scene text/layout hints; renderer validates everything."""
-    key=os.getenv("GEMINI_API_KEY")
-    if not key:
-        return None
+def ai_storyboard(prompt, count, base_scenes, provider="auto"):
+    """Use configured free-tier LLMs, validating every storyboard scene."""
+    from ai_providers import generate_json
+    all_scenes=[]
+    provider_used=None
     try:
-        from google import genai
-        client=genai.Client(api_key=key)
-        scene_total=[]
-        # Ten scenes per call keeps generated sections coherent and avoids truncation.
         for first in range(0,count,10):
             subset=base_scenes[first:first+10]
-            indexes=list(range(first+1,first+1+len(subset)))
-            response=client.models.generate_content(
-                model=os.getenv("GEMINI_MODEL","gemini-2.5-flash"),
-                contents=(
-                    "Write ORIGINAL motion-graphic explainer storyboard content based on "
-                    "the user's request. Return only a JSON object with 'scenes', EXACTLY "
-                    f"{len(subset)} objects in order for scene numbers {indexes}. "
-                    "Each object: title (<=9 words), subtitle (<=16 words), "
-                    "items (array of 3 to 5 concise, distinct labels), "
-                    "layout (one of: " + ", ".join(LAYOUTS) + "). "
-                    "Make titles specific, concrete and connected across scenes, not generic. "
-                    "NO statistics, quotes, citations or claims that you cannot verify. "
-                    "If the prompt requests factual research, present a conceptual explainer "
-                    "and do not pretend to have looked up sources. "
-                    "Keep copyrighted/trademarked characters and logos out of the visual design. "
-                    f"User prompt: {prompt}. "
-                    f"Nearby context: {json.dumps(subset,ensure_ascii=False)}"
-                ),
-                config={"response_mime_type":"application/json"},
+            instruction=(
+                "Write ORIGINAL motion-graphic explainer storyboard content. "
+                "Return ONLY a JSON object with a scenes array of EXACTLY "
+                + str(len(subset)) + " objects. Each object includes title (max 9 words), "
+                "subtitle (max 16 words), items (3-5 concise labels), layout (one of "
+                + ", ".join(LAYOUTS) + "). "
+                "Use concrete, connected topics; no invented statistics, sourced claims, "
+                "or copyrighted characters/logos. No claim of doing research. "
+                "User topic: " + prompt + ". Context: "
+                + json.dumps(subset,ensure_ascii=False)
             )
-            parsed=json.loads(response.text or "{}")
+            parsed, name = generate_json(instruction, provider=provider)
             chunk=parsed.get("scenes")
             if not isinstance(chunk,list) or len(chunk)!=len(subset):
                 return None
-            scene_total.extend(chunk)
-        if len(scene_total)!=count:
-            return None
+            all_scenes.extend(chunk)
+            provider_used=name
         safe=[]
-        for base,provided in zip(base_scenes,scene_total):
+        for base,provided in zip(base_scenes,all_scenes):
             if not isinstance(provided,dict):
                 return None
             scene=dict(base)
@@ -154,18 +140,26 @@ def gemini_storyboard(prompt, count, base_scenes):
                     scene[field]=value.strip()[:limit]
             items=provided.get("items",[])
             if isinstance(items,list):
-                trimmed=[str(x).strip()[:58] for x in items[:6] if str(x).strip()]
-                if trimmed:scene["items"]=trimmed
+                trimmed=[str(x).strip()[:58] for x in items[:6]
+                         if isinstance(x,str) and x.strip()]
+                if trimmed:
+                    scene["items"]=trimmed
             if provided.get("layout") in LAYOUTS:
                 scene["layout"]=provided["layout"]
             safe.append(scene)
-        return safe
-    except Exception as exc:
-        print("Gemini storyboard unavailable; using offline plan:",str(exc)[:180],flush=True)
+        return safe, provider_used
+    except (ValueError,RuntimeError,KeyError,TypeError) as exc:
+        print("Online storyboard unavailable; using offline plan:",type(exc).__name__,flush=True)
         return None
 
 
-def make_storyboard(prompt, duration=300, ratio="16:9", theme="midnight", use_ai=False):
+def gemini_storyboard(prompt, count, base_scenes):
+    """Backwards-compatible Gemini-only storyboard function."""
+    result=ai_storyboard(prompt,count,base_scenes,provider="gemini")
+    return result[0] if result else None
+
+
+def make_storyboard(prompt, duration=300, ratio="16:9", theme="midnight", use_ai=False, ai_provider="auto"):
     prompt=str(prompt).strip()
     if not 5<=len(prompt)<=2000:
         raise ValueError("Describe your video in 5 to 2000 characters")
@@ -179,9 +173,9 @@ def make_storyboard(prompt, duration=300, ratio="16:9", theme="midnight", use_ai
     # Keep timings on integer frame boundaries, including the last segment.
     count=min(60,max(6,round(duration/6)))
     offline=offline_storyboard(prompt,count,theme)
-    planned=gemini_storyboard(prompt,count,offline) if use_ai else None
-    mode="gemini" if planned else "offline"
-    scenes=planned or offline
+    planned=ai_storyboard(prompt,count,offline,provider=ai_provider) if use_ai else None
+    mode=planned[1] if planned else "offline"
+    scenes=planned[0] if planned else offline
     return {
         "prompt": prompt, "duration": duration, "ratio": ratio,
         "theme": theme, "planning_mode": mode,
@@ -258,9 +252,9 @@ def render_storyboard(storyboard, output, *, quality="draft", ambience=False, pr
 
 def create_video(prompt, output, *, duration=300, ratio="16:9",
                  theme="midnight", quality="draft", use_ai=False,
-                 ambience=False, progress=None):
+                 ambience=False, progress=None, ai_provider="auto"):
     if progress:progress(1,"Planning the storyboard")
-    storyboard=make_storyboard(prompt,duration=duration,ratio=ratio,theme=theme,use_ai=use_ai)
+    storyboard=make_storyboard(prompt,duration=duration,ratio=ratio,theme=theme,use_ai=use_ai,ai_provider=ai_provider)
     output=Path(output)
     output.parent.mkdir(parents=True,exist_ok=True)
     json_path=output.with_suffix(".storyboard.json")
@@ -280,7 +274,8 @@ def main():
     parser.add_argument("--ratio",choices=["16:9","9:16","1:1"],default="16:9")
     parser.add_argument("--theme",choices=list(PALETTES),default="midnight")
     parser.add_argument("--quality",choices=["draft","standard"],default="standard")
-    parser.add_argument("--use-ai",action="store_true",help="Use optional Gemini storyboard key")
+    parser.add_argument("--use-ai",action="store_true",help="Use optional free-tier LLM storyboard API")
+    parser.add_argument("--ai-provider",choices=["auto","gemini","groq","openrouter","kilo","nvidia","ovh"],default="auto")
     parser.add_argument("--ambience",action="store_true",help="Add synthesized ambient audio")
     parser.add_argument("--output",default="motionforge-5min.mp4")
     args=parser.parse_args()
@@ -288,7 +283,7 @@ def main():
         print(f"[{p:5.1f}%] {message}",flush=True)
     result=create_video(args.prompt,args.output,duration=args.duration,ratio=args.ratio,
                         theme=args.theme,quality=args.quality,use_ai=args.use_ai,
-                        ambience=args.ambience,progress=show)
+                        ambience=args.ambience,progress=show,ai_provider=args.ai_provider)
     print(json.dumps(result,ensure_ascii=False,indent=2))
 
 
