@@ -1,5 +1,62 @@
 # MotionForge AI 🎬
 
+## Download and launch the local app (Windows / macOS / Linux)
+
+**Download ZIP:** https://github.com/Suryakanta-Creator/MotionForge-AI-/archive/refs/heads/main.zip
+
+This ZIP is the downloadable MotionForge AI local web app, not a compiled Windows EXE. It runs privately on your PC and opens in your browser. Requirements: **Python 3.10+**, **FFmpeg and ffprobe** installed and available on PATH, and internet access to install Python packages or call external LLM/Veo APIs.
+
+1. Download and extract the ZIP.
+2. On Windows, double-click **launch_windows.bat**. On macOS/Linux, run **sh launch_mac_linux.sh** from the extracted folder.
+3. Open http://127.0.0.1:7860 if your browser did not open. Press Ctrl+C in the terminal to stop the server.
+4. The basic video editor and motion-graphics renderer work without any API key. Generated videos download as MP4.
+
+The scripts install the optional Google SDK in a local Python virtual environment on first run. They bind only to 127.0.0.1; do not expose the unauthenticated local server to the public internet. macOS may require permission to run the shell script. This is a Python app with a local browser interface, not a native signed macOS application or standalone executable.
+
+### Free LLM API setup
+
+MotionForge now supports six optional storyboard-planning providers: **Gemini, Groq, OpenRouter, Kilo Code, NVIDIA NIM, and OVHcloud AI**. These are quota-limited offerings curated using https://github.com/mnfst/awesome-free-llm-apis. They are **not unlimited**, and model availability can change. LLM providers receive the text of your storyboard prompt; review their data policies and don't send secrets.
+
+In the editor's **One-prompt motion graphics** panel, enable **Use free-tier AI**, then choose the provider or **Auto**. The app checks only its own environment variables for credentials. Automatic routing tries configured providers first and anonymous free ones after that; when no provider can respond, offline storyboard planning remains available. Free providers generate textual scene plans, *not* generated video footage.
+
+Set the chosen secret key in the **server environment**, never in the browser or committed to GitHub:
+
+| Provider | Environment variable | Key location |
+| --- | --- | --- |
+| Gemini (text) | GEMINI_API_KEY | https://aistudio.google.com/api-keys |
+| Groq | GROQ_API_KEY | https://console.groq.com/keys |
+| OpenRouter | OPENROUTER_API_KEY | https://openrouter.ai/keys |
+| Kilo Code | None required for anonymous free pool | https://kilo.ai/docs/gateway/authentication |
+| NVIDIA NIM | NVIDIA_API_KEY | https://build.nvidia.com/ |
+| OVHcloud | None required for very-low-rate anonymous access | https://www.ovhcloud.com/en/public-cloud/ai-endpoints/ |
+
+For Windows Command Prompt in the same window, set a key then run the launcher:
+
+    set GEMINI_API_KEY=YOUR_PRIVATE_KEY
+    launch_windows.bat
+
+For macOS/Linux use, in a terminal, export the environment variable before launching:
+
+    export GEMINI_API_KEY=YOUR_PRIVATE_KEY
+    sh launch_mac_linux.sh
+
+Use a shell secret manager or Render's secret environment variable settings for long-term storage. Do not paste your key into a public prompt or log. You can query GET /api/ai/providers to check configured provider names without exposing key values.
+
+### Google Veo video API: separately paid
+
+Google's video-generation API **is not free**. Gemini free text tokens cannot generate Veo footage. To enable the optional video-generation panel, use a Gemini API key linked to an eligible billing-enabled Google project, and explicitly set:
+
+    MOTIONFORGE_ENABLE_PAID_VEO=1
+
+The setting is intentionally OFF by default. Each Veo job additionally requires checking an **I authorize a paid Google Veo request** box in the editor, and the server validates that confirmation too. The UI shows an estimated cost before submitting. API prices (USD, 720p, as documented in Oct 2026) are **$0.05/s for Veo 3.1 Lite**, **$0.10/s for Fast**, **$0.40/s for Standard**; verify current prices at https://ai.google.dev/gemini-api/docs/pricing before enabling billing. Use https://ai.google.dev/gemini-api/docs/veo for the API model and feature specification.
+
+This integration creates **one 4-, 6- or 8-second clip at a time**, checks Google's asynchronous video job, and provides the MP4 through the existing download endpoint. It does **not** generate a five-minute continuous AI-video clip with a single Veo API request. The existing original motion-graphics renderer is a separate capability; it can make a full five-minute illustrated/animated title-and-card video locally without Veo.
+
+For Render: set GEMINI_API_KEY and, only if you want paid Veo, MOTIONFORGE_ENABLE_PAID_VEO=1 in your service's **Environment** settings; keep MOTIONFORGE_PASSWORD configured for authentication. Because Render autoDeployTrigger is off, manually deploy the latest commit. Do not put secrets in render.yaml.
+
+---
+
+
 A lightweight, prompt-directed video editor built with **FastAPI + FFmpeg + vanilla JavaScript**. Upload still images or video clips, describe the motion, adjust the edit decisions, add audio, and export a real MP4.
 
 ## What works
