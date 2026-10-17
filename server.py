@@ -111,6 +111,7 @@ class AutopilotRequest(BaseModel):
     theme: str = "midnight"
     use_ai: bool = False
     ambience: bool = True
+    ai_provider: str = "auto"
 
 class ReviseRequest(BaseModel):
     plan: dict
@@ -163,6 +164,12 @@ def health():
             "gemini_configured": bool(os.getenv("GEMINI_API_KEY")),
             "free_mode": FREE_MODE, "max_scenes": MAX_SCENES,
             "max_upload_mb": MAX_UPLOAD // (1024 * 1024), "version": "0.4.0"}
+
+
+@app.get("/api/ai/providers")
+def ai_provider_list():
+    from ai_providers import available_providers
+    return {"providers": available_providers(), "default": "auto", "video_model_included": False}
 
 
 @app.post("/api/upload")
@@ -720,6 +727,7 @@ def autopilot_job(job_id: str, request: AutopilotRequest):
             ratio=request.ratio, theme=request.theme,
             quality="draft" if FREE_MODE else "standard",
             use_ai=request.use_ai, ambience=request.ambience, progress=report,
+            ai_provider=request.ai_provider,
         )
         with mutex:
             jobs[job_id].update(
@@ -738,6 +746,9 @@ def autopilot_job(job_id: str, request: AutopilotRequest):
 @app.post("/api/auto/start")
 def start_autopilot(request: AutopilotRequest):
     from motion_engine import PALETTES
+    from ai_providers import PROVIDERS
+    if request.ai_provider != "auto" and request.ai_provider not in PROVIDERS:
+        raise HTTPException(400, "Unknown AI planning provider")
     if request.ratio not in SIZES or request.theme not in PALETTES:
         raise HTTPException(400, "Unknown canvas ratio or graphics theme")
     if not shutil.which("ffmpeg"):
@@ -819,6 +830,9 @@ def export(job_id: str):
 from motion_graphics import install_motion_routes
 install_motion_routes(app, jobs, mutex, pool, EXPORTS, WORK, FREE_MODE, ROOT / "studio")
 
+from veo_video import install_veo_routes
+install_veo_routes(app, jobs, mutex, pool, EXPORTS)
+
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", "7860")))
+    uvicorn.run(app, host=os.getenv("MOTIONFORGE_HOST", "0.0.0.0"), port=int(os.getenv("PORT", "7860")))
