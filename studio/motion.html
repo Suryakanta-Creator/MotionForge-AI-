@@ -67,7 +67,19 @@ footer{text-align:center;color:#6f7b91;font-size:11px;padding:10px 20px 40px}
         <div><label for="duration">Video duration</label><select id="duration"><option value="12">12 seconds</option><option value="24" selected>24 seconds</option><option value="30">30 seconds</option><option value="45">45 seconds</option><option value="60">60 seconds</option><option value="120">2 minutes</option><option value="180">3 minutes</option><option value="300">5 minutes</option></select></div>
       </div>
       <label class="toggle"><input id="research" type="checkbox" checked><span><strong>Research topic automatically</strong><br>Look up Wikipedia summaries when available; sources appear with your result.</span></label>
-      <label class="toggle"><input id="audio" type="checkbox" checked><span><strong>Include original ambient tones</strong><br>Soft generated audio (not cloned speech or licensed music).</span></label>
+      <label class="toggle"><input id="useAI" type="checkbox"><span><strong>Enhance headings with a free-tier AI model</strong><br>Optional text improvement; the original animation engine still renders the MP4.</span></label>
+       <label for="aiProvider">AI planning provider</label>
+       <select id="aiProvider">
+         <option value="auto">Automatic · free-tier fallbacks</option>
+         <option value="gemini">Gemini · API key</option>
+         <option value="groq">Groq · API key</option>
+         <option value="openrouter">OpenRouter free models</option>
+         <option value="kilo">Kilo free router · no key</option>
+         <option value="nvidia">NVIDIA NIM</option>
+         <option value="ovh">OVHcloud anonymous · slow quota</option>
+       </select>
+       <p class="tiny">Providers have usage limits and may process your prompt. Paid Veo video generation is available separately in the classic editor.</p>
+       <label class="toggle"><input id="audio" type="checkbox" checked><span><strong>Include original ambient tones</strong><br>Soft generated audio (not cloned speech or licensed music).</span></label>
       <button class="primary" id="create">✦ Research, animate & export video</button>
       <p class="tiny">Free Render hosting is limited to short, draft-resolution videos. Longer exports need a local or stronger server. Facts will not be invented when research is unavailable.</p>
     </section>
@@ -129,6 +141,7 @@ footer{text-align:center;color:#6f7b91;font-size:11px;padding:10px 20px 40px}
       const started=await api("/api/motion/create",{method:"POST",headers:{"Content-Type":"application/json"},
         body:JSON.stringify({topic,style:$("style").value,ratio:$("ratio").value,
           duration:Number($("duration").value),research:$("research").checked,
+          use_ai:$("useAI").checked,ai_provider:$("aiProvider").value,
           ambient_audio:$("audio").checked})});
       let result;
       for(let i=0;i<900;i++){
