@@ -49,6 +49,8 @@ class MotionRequest(BaseModel):
     style: str = "midnight"
     research: bool = True
     ambient_audio: bool = True
+    use_ai: bool = False
+    ai_provider: str = "auto"
 
 
 def _font(size: int, text: str = ""):
@@ -171,6 +173,34 @@ def make_storyboard(request: MotionRequest, facts: dict) -> dict:
             "duration": duration, "research_status": facts["status"],
             "sources": facts["sources"], "scenes": scenes,
             "generation": "deterministic animation / sourced research; no model weight training"}
+
+
+def enhance_motion_storyboard(plan: dict, provider="auto"):
+    """Optional AI rewrites headings only; researched body text is unchanged."""
+    from ai_providers import generate_json
+    import json
+    scenes = plan["scenes"]
+    prompt = (
+        "For this video rewrite ONLY the scene headings for clarity and stronger visual "
+        "storytelling. Do not invent or change any factual claims. No new statistics or "
+        "unsourced facts. Return only a JSON object with a headings array of EXACTLY "
+        + str(len(scenes)) + " nonempty short strings (under 8 words each). "
+        "Topic and existing scene text: "
+        + json.dumps([{"heading": s["heading"], "body": s["body"]}
+                      for s in scenes], ensure_ascii=False)
+    )
+    try:
+        output, actual = generate_json(prompt, provider=provider)
+        headings = output.get("headings")
+        if not isinstance(headings, list) or len(headings) != len(scenes):
+            return plan
+        for scene, heading in zip(scenes, headings):
+            if isinstance(heading, str) and 2 <= len(heading.strip()) <= 90:
+                scene["heading"] = heading.strip()[:72]
+        plan["planning_mode"] = actual
+    except (RuntimeError, ValueError, KeyError, TypeError):
+        plan["planning_mode"] = "offline"
+    return plan
 
 
 def _rgb(color: str) -> tuple[int, int, int]:
@@ -509,6 +539,9 @@ def install_motion_routes(app, jobs, mutex: threading.Lock, pool, exports: Path,
                 "status": "disabled", "sources": []}
             update(9, "Preparing research-based storyboard")
             plan = make_storyboard(settings, research)
+            if settings.use_ai:
+                update(10, "Improving storyboard headings with a free-tier model")
+                plan = enhance_motion_storyboard(plan, settings.ai_provider)
             plan["ambient_audio"] = settings.ambient_audio
             with mutex:
                 jobs[job_id]["storyboard"] = plan
@@ -517,7 +550,8 @@ def install_motion_routes(app, jobs, mutex: threading.Lock, pool, exports: Path,
                 jobs[job_id].update(state="done", progress=100, message="Video complete",
                                     url=f"/api/export/{job_id}",
                                     research_status=plan["research_status"],
-                                    sources=plan["sources"])
+                                    sources=plan["sources"],
+                                    planning_mode=plan.get("planning_mode", "offline"))
         except Exception as exc:
             target.unlink(missing_ok=True)
             with mutex:
@@ -527,6 +561,9 @@ def install_motion_routes(app, jobs, mutex: threading.Lock, pool, exports: Path,
 
     @app.post("/api/motion/create")
     def create(request: MotionRequest):
+        from ai_providers import PROVIDERS
+        if request.ai_provider != "auto" and request.ai_provider not in PROVIDERS:
+            raise HTTPException(400, "Unknown AI provider")
         if request.ratio not in RATIOS:
             raise HTTPException(400, "Unsupported aspect ratio")
         if request.style not in PALETTES:
