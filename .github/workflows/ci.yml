@@ -18,6 +18,6 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt pytest httpx
       - name: Compile Python source
-        run: python -m compileall -q server.py autonomous.py motion_engine.py tests/
+        run: python -m compileall -q server.py autonomous.py ai_providers.py veo_video.py motion_engine.py tests/
       - name: Test upload, plan, render and MP4 export
         run: PYTHONPATH=. pytest -q tests/
