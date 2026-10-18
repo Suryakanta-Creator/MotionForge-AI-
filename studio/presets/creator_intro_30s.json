@@ -1,0 +1,91 @@
+{
+  "name": "MotionForge / Creator Studio Intro",
+  "description": "Native MotionForge graphics sample: six editable five-second scenes",
+  "duration": 30,
+  "ratio": "16:9",
+  "fps": 20,
+  "scenes": [
+    {
+      "layout": "kinetic",
+      "theme": "midnight",
+      "title": "MAKE IDEAS MOVE",
+      "subtitle": "Your creative workflow, frame by frame",
+      "label": "01 / CREATIVE HOOK",
+      "items": [
+        "Hook",
+        "Rhythm",
+        "Motion"
+      ]
+    },
+    {
+      "layout": "cards",
+      "theme": "ocean",
+      "title": "THE CREATIVE STACK",
+      "subtitle": "One studio. Multiple disciplines.",
+      "label": "02 / TOOLKIT",
+      "items": [
+        "Kinetic type",
+        "Graphic design",
+        "Video editing",
+        "Sound design",
+        "Motion presets"
+      ]
+    },
+    {
+      "layout": "scroll",
+      "theme": "midnight",
+      "title": "BUILD THE TIMELINE",
+      "subtitle": "Turn a plan into scenes you can review.",
+      "label": "03 / EDITING",
+      "items": [
+        "Write the script",
+        "Build a storyboard",
+        "Design each scene",
+        "Set the timing",
+        "Add polish",
+        "Render the draft"
+      ]
+    },
+    {
+      "layout": "dashboard",
+      "theme": "ember",
+      "title": "CONTROL THE MOTION",
+      "subtitle": "Visual hierarchy, pace and story.",
+      "label": "04 / MOTION",
+      "items": [
+        "Position",
+        "Scale",
+        "Easing",
+        "Timing",
+        "Consistency"
+      ]
+    },
+    {
+      "layout": "steps",
+      "theme": "ocean",
+      "title": "FROM PROMPT TO CUT",
+      "subtitle": "A repeatable production process.",
+      "label": "05 / WORKFLOW",
+      "items": [
+        "Ideate",
+        "Storyboard",
+        "Animate",
+        "Review",
+        "Export"
+      ]
+    },
+    {
+      "layout": "kinetic",
+      "theme": "midnight",
+      "title": "EXPORT. REVIEW. REPEAT.",
+      "subtitle": "Make the next video better than the last.",
+      "label": "06 / CALL TO ACTION",
+      "items": [
+        "1080p later",
+        "MP4 today",
+        "Creative control"
+      ]
+    }
+  ],
+  "notes": "All text and visual layouts are editable. Uses the project's existing 2D renderer; the camera zoom and extra transition effects in the separate local preview kit are not yet part of this preset runner."
+}
